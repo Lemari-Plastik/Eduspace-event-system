@@ -1,0 +1,37 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+vendor/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.backup
+!.env.example
+
+# Build outputs
+dist/
+build/
+public/build/
+public/hot/
+
+# Cache & Logs
+*.log
+.phpunit.result.cache
+.phpunit.cache/
+storage/logs/*.log
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+
+# IDE
+.idea/
+.vscode/
+.zed/
+.codex/
+.cursor/
+

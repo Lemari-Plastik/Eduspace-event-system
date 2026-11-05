@@ -1,0 +1,223 @@
+---
+name: Open House & Event Pass System
+colors:
+  surface: '#FFFFFF'
+  surface-dim: '#d7d8f0'
+  surface-bright: '#fbf8ff'
+  surface-container-lowest: '#ffffff'
+  surface-container-low: '#f4f2ff'
+  surface-container: '#ececff'
+  surface-container-high: '#e5e6fe'
+  surface-container-highest: '#dfe1f9'
+  on-surface: '#181b2b'
+  on-surface-variant: '#464651'
+  inverse-surface: '#2c2f41'
+  inverse-on-surface: '#f0efff'
+  outline: '#777683'
+  outline-variant: '#c7c5d3'
+  surface-tint: '#5354ad'
+  primary: '#5354ad'
+  on-primary: '#ffffff'
+  primary-container: '#9fa0ff'
+  on-primary-container: '#32328a'
+  inverse-primary: '#c1c1ff'
+  secondary: '#506260'
+  on-secondary: '#ffffff'
+  secondary-container: '#d3e6e4'
+  on-secondary-container: '#566866'
+  tertiary: '#655d51'
+  on-tertiary: '#ffffff'
+  tertiary-container: '#b2a89a'
+  on-tertiary-container: '#443d32'
+  error: '#ba1a1a'
+  on-error: '#ffffff'
+  error-container: '#ffdad6'
+  on-error-container: '#93000a'
+  primary-fixed: '#e1dfff'
+  primary-fixed-dim: '#c1c1ff'
+  on-primary-fixed: '#0a0169'
+  on-primary-fixed-variant: '#3b3b94'
+  secondary-fixed: '#d3e6e4'
+  secondary-fixed-dim: '#b8cac8'
+  on-secondary-fixed: '#0d1e1e'
+  on-secondary-fixed-variant: '#394a49'
+  tertiary-fixed: '#ece1d1'
+  tertiary-fixed-dim: '#d0c5b6'
+  on-tertiary-fixed: '#201b11'
+  on-tertiary-fixed-variant: '#4d463a'
+  background: '#fbf8ff'
+  on-background: '#181b2b'
+  surface-variant: '#dfe1f9'
+  primary-dark: '#7B7CE6'
+  coral-alert: '#FF7171'
+  coral-dark: '#E05353'
+  text-muted: '#64748B'
+  border-subtle: '#E2E8F0'
+  canvas-admin: '#F8FAFC'
+  neutral-badge-bg: '#F1F5F9'
+typography:
+  display-hero:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 32px
+    fontWeight: '700'
+    lineHeight: 38px
+  display-hero-mobile:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 26px
+    fontWeight: '700'
+    lineHeight: 32px
+  headline-lg:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 24px
+    fontWeight: '600'
+    lineHeight: 32px
+  headline-md:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 18px
+    fontWeight: '600'
+    lineHeight: 26px
+  body-regular:
+    fontFamily: Inter
+    fontSize: 15px
+    fontWeight: '400'
+    lineHeight: 22px
+  body-medium:
+    fontFamily: Inter
+    fontSize: 15px
+    fontWeight: '500'
+    lineHeight: 22px
+  body-sm:
+    fontFamily: Inter
+    fontSize: 13px
+    fontWeight: '400'
+    lineHeight: 18px
+  label-badge:
+    fontFamily: Inter
+    fontSize: 13px
+    fontWeight: '500'
+    lineHeight: 18px
+  code-coupon-lg:
+    fontFamily: JetBrains Mono
+    fontSize: 28px
+    fontWeight: '700'
+    lineHeight: 34px
+  code-coupon-md:
+    fontFamily: JetBrains Mono
+    fontSize: 20px
+    fontWeight: '800'
+    lineHeight: 24px
+  code-sm:
+    fontFamily: JetBrains Mono
+    fontSize: 13px
+    fontWeight: '500'
+    lineHeight: 18px
+rounded:
+  sm: 0.25rem
+  DEFAULT: 0.5rem
+  md: 0.75rem
+  lg: 1rem
+  xl: 1.5rem
+  full: 9999px
+spacing:
+  gutter: 1rem
+  gutter-desktop: 1.5rem
+  margin: 1rem
+  margin-tablet: 1.5rem
+  margin-desktop: 2.5rem
+  space-xs: 0.25rem
+  space-sm: 0.5rem
+  space-md: 1rem
+  space-lg: 1.5rem
+  space-xl: 2rem
+---
+
+## Brand & Style
+
+The design system is crafted for high-engagement educational open houses, trial class registrations, and automated coupon redemptions. It combines the warmth and friendliness of youth-oriented community events with the operational precision of an on-site event credentialing tool. The visual language balances optimistic pastel tones with high-contrast, accessible typography—producing an experience that feels welcoming to prospective students and accompanying teachers, yet reliable and fast-paced for event organizers scanning passes at the door.
+
+### Visual Aesthetic & Movements
+- **Warm Contemporary Tactile:** Rooted in clean modern interfaces with subtle physical metaphors. The system leverages soft canvas warmth, periwinkle accent lighting, and coupon pass architectures that evoke physical event credentials (notched edges, perforated rules, and scannable code blocks).
+- **Legibility-First Contrast:** While surface canvases utilize delicate tints (warm creams, soft periwinkles, and gentle mints), all critical text and structural affordances are grounded in deep charcoal to ensure outdoors and quick-glance readability under variable lighting conditions.
+- **Micro-Delight with Purpose:** Interactions utilize responsive tactile feedback (e.g., subtle active-press compression, ambient periwinkle luminescence on key calls to action, and smooth accordion disclosures) designed to reduce registration anxiety and maintain rapid scanner throughput.
+
+## Colors
+
+The palette establishes an inviting, approachable atmosphere tailored for Indonesian students and faculty, while adhering strictly to high legibility standards.
+
+### Color Roles & Hierarchy
+- **Primary Brand (`#9FA0FF` / Periwinkle):** Serves as the central energetic interactive hue. Used on primary buttons, highlighted category borders, barcode sweep laser lines, and focused states. Its darkened state (`#7B7CE6`) handles hover and active press feedbacks.
+- **Secondary (`#D5E8E6` / Mint):** Associated with verified statuses, attended badges, successful redemption modals, and header bands for confirmed digital coupons.
+- **Tertiary Canvas (`#FFF3E3` / Warm Cream):** Sets the default canvas ground for public-facing registration screens, infusing hospitality and lowering bureaucratic formality.
+- **Neutral Main (`#1A1D2E` / Deep Charcoal):** Delivers dominant textual contrast across headings, data inputs, and alphanumeric identifiers to ensure WCAG AAA readability.
+- **Alert Coral (`#FF7171` & `#E05353`):** Reserved strictly for validation failures, duplicate redemption notices, session conflicts, and irreversible administrative actions.
+- **Subtle Surface & Admin Tokens (`#FFFFFF`, `#F8FAFC`, `#E2E8F0`):** Provide modular separation across cards, data tables, and perforated dividing lines without stark graphic weight.
+
+## Typography
+
+The typographic hierarchy divides duties across three distinct typefaces to establish structural clarity:
+
+1. **Plus Jakarta Sans (Headings & Hero Displays):** Friendly, humanist geometric curves that project modern warmth and community engagement on screen titles, sectional cards, and confirmation headings.
+2. **Inter (Interface & Body Text):** Utilitarian and balanced, offering high clarity for registration labels, form inputs, metadata, and operational tooltips.
+3. **JetBrains Mono (Identity & Coupon Data):** Monospaced precision for coupon codes (e.g., `ABSC-0001`), voucher verification keys, and timestamps, ensuring immediate character differentiation (zero vs. O, one vs. I) during verbal checks or manual overrides.
+
+### Scaling & Legibility Rules
+- Primary event headlines scale down from `32px` to `26px` on viewports narrower than 640px to preserve tight vertical rhythm.
+- Coupon codes are presented in strict monospaced uppercase with generous horizontal tracking (`0.05em`) to eliminate scanning confusion.
+
+## Layout & Spacing
+
+The layout balances mobile accessibility with desktop efficiency:
+- **Mobile Public Flow:** A single-column vertical stack centered inside safe viewports (360px–428px), bounded at a maximum desktop card width of `max-w-lg` (`32rem` / `512px`). This ensures registration flows mirror a focused, app-like pass creation process on both phones and wide monitors.
+- **Admin & Desk Flow:** A fluid grid transitioning from a single column on mobile to a 12-column administrative layout at `1024px` breakpoints, facilitating simultaneous barcode scanner camera viewports alongside paginated real-time registration tables.
+
+### Touch Targets & Spatial Rhythm
+- **Minimum Tap Target:** Standard interactive triggers maintain a mandatory minimum height of `48px`.
+- **Primary Buttons:** Given priority height of `52px` to simplify single-handed submission on mobile devices.
+- **Grid Layouts:** Role selectors (e.g., *Siswa* vs. *Guru*) snap to a 2-column inline pair, whereas Trial Class selections use a responsive 2-by-2 card matrix.
+
+## Elevation & Depth
+
+Visual hierarchy uses warm, tinted ambient depths instead of heavy, neutral drop shadows, maintaining an airy and modern aesthetic.
+
+### Elevation Levels
+- **Ground / Base (`z-0`):** `#FFF3E3` warm cream for public sign-ups and `#F8FAFC` slate canvas for admin desk operations. Completely flat.
+- **Resting Container (`z-1`):** Applied to registration panels, role blocks, and data cards. Composed of a crisp `1px solid #E2E8F0` border backed by dual tinted ambient shadows:
+  `box-shadow: 0 4px 20px -2px rgba(159, 160, 255, 0.12), 0 2px 6px -1px rgba(0, 0, 0, 0.04);`
+- **Interactive Luminescence (`z-1` Hover/Active):** Primary interactive calls to action utilize a periwinkle glow:
+  `box-shadow: 0 4px 14px 0 rgba(159, 160, 255, 0.39);`
+- **Modal Dialogue & Floating Pass (`z-50`):** Used on digital ticket credential cards, scanner dialogs, and alert sheets. Grounded by deep charcoal dispersion:
+  `box-shadow: 0 20px 40px -10px rgba(26, 29, 46, 0.15);`
+  Layered over a 50% opacity backdrop with soft background blur (`backdrop-filter: blur(8px)`).
+
+## Shapes
+
+The design uses a roundedness level of `2`, utilizing proportional radii mapped to the physical scale of individual components:
+
+- **Interactive Controls (Inputs, Dropdowns, Primary Triggers):** Form elements and buttons use a strict `12px` radius (`0.75rem`), balancing friendly tactile softness with structured input alignment.
+- **Container Surfaces & Structural Panels:** Main cards, modal frames, and attendee panels feature generous `20px` to `24px` radii (`1.25rem` to `1.5rem`), grounding the friendly visual tone.
+- **Status Pills, Badges & Notches:** Verification labels, role chips, and unredeemed tags leverage full pill shapes (`9999px` / `rounded-full`).
+- **Pass Credentials:** Digital ticket cards combine `20px` outer card radii with dual inward circular punch-notches along the perforated dividing axis (`border-style: dashed; border-color: #E2E8F0;`).
+
+## Components
+
+### Buttons
+- **Primary Action:** Solid `#9FA0FF` background, `#1A1D2E` text, `12px` radius, `52px` height. Hover state transitions to `#7B7CE6` with interactive periwinkle glow shadow. Active tap transitions to `scale(0.98)`.
+- **Secondary / Ghost:** Transparent surface with `1px solid #E2E8F0`, deep charcoal text, active background transition to `#9FA0FF15`.
+- **Destructive:** Deep `#FF7171` surface with `#FFFFFF` text for permanent deletes or attendance revocations; hover state shifts to `#E05353`.
+
+### Input Fields & Controls
+- **Text Inputs & Dropdowns:** `12px` border radius, `48px` minimum height, white background, `1px solid #E2E8F0` border. Active focus shifts border to `2px solid #9FA0FF` with no jarring layout shifts. Text styled in `body-regular` (`#1A1D2E`), placeholder styled in `#64748B`.
+- **Role Selection Cards:** Selectable 2-column cards functioning as rich radio buttons. Unselected state has a `1px solid #E2E8F0` border; selected state transitions to `2px solid #9FA0FF` with an inner `#9FA0FF15` light background wash.
+
+### Chips & Status Badges
+- **Attended / Redeemed Chip:** Pill shape (`9999px`), `#D5E8E6` mint background, `#1A1D2E` text, accompanying Lucide checkmark icon.
+- **Pending / Unredeemed Chip:** Pill shape (`9999px`), `#F1F5F9` neutral surface, `#64748B` muted text.
+- **Alert / Conflict Chip:** Pill shape (`9999px`), soft `#FF717120` red wash, `#E05353` bold text.
+
+### Digital Pass / Voucher Ticket
+- **Credential Architecture:** Two-part composite card using a white elevated surface. The upper section displays attendee role and trial class subject; the lower section presents the monospace coupon code and rendered CODE128 barcode or QR code.
+- **Perforated Joint:** Separated by a horizontal dashed line in `#E2E8F0` bounded on the left and right card edges by inward concave cutouts simulating a torn event pass.
+
+### Camera Viewfinder & Scanner
+- **Scanner Frame:** Centered target area with rounded viewfinder brackets. Includes an animated vertical scanning laser line in `#9FA0FF` (`2px` height with a linear infinite translate animation).
+- **Scanner Feedback:** Automatic success modal with auto-dismiss timer (3000ms) and minimum 1500ms sensor throttling to prevent accidental double-scans.

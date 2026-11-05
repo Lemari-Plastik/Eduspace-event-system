@@ -1,0 +1,796 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useEffect, useState } from 'react';
+import {
+  CheckCircle2,
+  ArrowLeft,
+  Ticket,
+  Lock,
+  User,
+  Eye,
+  EyeOff,
+  X,
+  AlertCircle,
+} from 'lucide-react';
+import {
+  AttendeePass,
+  AttendeeRole,
+  BackendAdmin,
+  EDUPASS_LOGO_URL,
+  InfoSourceType,
+  INITIAL_ATTENDEES,
+  INITIAL_SCAN_LOGS,
+  ScanFeedback,
+  ScanLogEntry,
+  School,
+  TrialClassType,
+} from './types';
+import { RegistrationView } from './components/RegistrationView';
+import { DigitalPassCard } from './components/DigitalPassCard';
+import { AdminPageId, AdminScannerDesk } from './components/AdminScannerDesk';
+import { ScannerModal } from './components/ScannerModal';
+import {
+  api,
+  formatTimestampWib,
+  formatTimestampWithSecondsWib,
+  mapBackendToAttendeePass,
+} from './services/api';
+
+type UserRoleMode = 'user' | 'admin';
+
+const STORAGE_KEY_LOGS = 'edupass_openhouse_logs_v5';
+const STORAGE_KEY_MY_PASS_ID = 'edupass_openhouse_my_pass_id_v4';
+const STORAGE_KEY_MY_PASS_DATA = 'edupass_saved_pass_data';
+
+export default function App() {
+  const [roleMode, setRoleMode] = useState<UserRoleMode>('user');
+  const [adminPage, setAdminPage] = useState<AdminPageId>('admin-participants');
+
+  // Admin Auth state
+  const [adminToken, setAdminToken] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('admin_token');
+    } catch {
+      return null;
+    }
+  });
+  const [adminUser, setAdminUser] = useState<BackendAdmin | null>(null);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Schools state
+  const [schools, setSchools] = useState<School[]>([]);
+  const [isLoadingSchools, setIsLoadingSchools] = useState(false);
+
+  // Attendees & Logs state
+  const [attendees, setAttendees] = useState<AttendeePass[]>(INITIAL_ATTENDEES);
+  const [isRefreshingParticipants, setIsRefreshingParticipants] = useState(false);
+
+  const [scanLogs, setScanLogs] = useState<ScanLogEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_LOGS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // Fallback
+    }
+    return INITIAL_SCAN_LOGS;
+  });
+
+  // Regular user ticket state
+  const [myCreatedPassId, setMyCreatedPassId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY_MY_PASS_ID);
+    } catch {
+      return null;
+    }
+  });
+
+  const [myCreatedPass, setMyCreatedPass] = useState<AttendeePass | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_MY_PASS_DATA);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {
+      // Fallback
+    }
+    return null;
+  });
+
+  const [userStep, setUserStep] = useState<'form' | 'my-ticket'>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY_MY_PASS_ID) ? 'my-ticket' : 'form';
+    } catch {
+      return 'form';
+    }
+  });
+
+  const [scanFeedback, setScanFeedback] = useState<ScanFeedback | null>(null);
+
+  // Sync scan logs
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(scanLogs));
+    } catch {
+      // Ignore
+    }
+  }, [scanLogs]);
+
+  // Sync my ticket
+  useEffect(() => {
+    try {
+      if (myCreatedPassId) {
+        localStorage.setItem(STORAGE_KEY_MY_PASS_ID, myCreatedPassId);
+      } else {
+        localStorage.removeItem(STORAGE_KEY_MY_PASS_ID);
+      }
+    } catch {
+      // Ignore
+    }
+  }, [myCreatedPassId]);
+
+  useEffect(() => {
+    try {
+      if (myCreatedPass) {
+        localStorage.setItem(STORAGE_KEY_MY_PASS_DATA, JSON.stringify(myCreatedPass));
+      } else {
+        localStorage.removeItem(STORAGE_KEY_MY_PASS_DATA);
+      }
+    } catch {
+      // Ignore
+    }
+  }, [myCreatedPass]);
+
+  // Initial data loading from backend
+  useEffect(() => {
+    const initializeData = async () => {
+      // 1. Fetch schools list from database
+      try {
+        setIsLoadingSchools(true);
+        const schoolList = await api.getSchools();
+        setSchools(schoolList);
+      } catch (err) {
+        console.error('Failed to load schools from backend:', err);
+      } finally {
+        setIsLoadingSchools(false);
+      }
+
+      // 2. Validate admin session if token exists
+      const savedToken = localStorage.getItem('admin_token');
+      if (savedToken) {
+        try {
+          const me = await api.adminGetMe(savedToken);
+          setAdminToken(savedToken);
+          setAdminUser(me);
+
+          // Fetch participants list for admin
+          const parts = await api.getParticipants(savedToken, { per_page: 150 });
+          setAttendees(parts.data.map(mapBackendToAttendeePass));
+        } catch {
+          // Token expired or server unreachable
+          localStorage.removeItem('admin_token');
+          setAdminToken(null);
+          setAdminUser(null);
+        }
+      }
+    };
+
+    initializeData();
+  }, []);
+
+  const openLoginModal = () => {
+    setAdminUsername('');
+    setAdminPassword('');
+    setShowPassword(false);
+    setLoginError(null);
+    setIsLoginModalOpen(true);
+  };
+
+  const closeLoginModal = () => {
+    setIsLoginModalOpen(false);
+    setLoginError(null);
+  };
+
+  const handleAdminLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminUsername.trim() || !adminPassword) {
+      setLoginError('Mohon isi username dan password admin.');
+      return;
+    }
+
+    setLoginError(null);
+    setIsLoggingIn(true);
+
+    try {
+      const res = await api.adminLogin({
+        username: adminUsername.trim(),
+        password: adminPassword,
+      });
+
+      setAdminToken(res.token);
+      setAdminUser(res.admin);
+      localStorage.setItem('admin_token', res.token);
+      setIsLoginModalOpen(false);
+      setAdminUsername('');
+      setAdminPassword('');
+      setRoleMode('admin');
+
+      // Load participants list
+      const parts = await api.getParticipants(res.token, { per_page: 150 });
+      setAttendees(parts.data.map(mapBackendToAttendeePass));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err: any) {
+      setLoginError(
+        err.message || 'Username atau password salah. Gunakan kredensial admin yang valid.'
+      );
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleAdminLogout = async () => {
+    if (adminToken) {
+      try {
+        await api.adminLogout(adminToken);
+      } catch {
+        // Best effort
+      }
+    }
+    setAdminToken(null);
+    setAdminUser(null);
+    localStorage.removeItem('admin_token');
+    setRoleMode('user');
+  };
+
+  const handleRefreshParticipants = async () => {
+    if (!adminToken) return;
+    try {
+      setIsRefreshingParticipants(true);
+      const res = await api.getParticipants(adminToken, { per_page: 150 });
+      setAttendees(res.data.map(mapBackendToAttendeePass));
+    } catch (err: any) {
+      console.error('Failed to refresh participants', err);
+    } finally {
+      setIsRefreshingParticipants(false);
+    }
+  };
+
+  const getNextCouponCode = (): string => {
+    let maxNum = 0;
+    for (const item of attendees) {
+      const match = item.couponCode.match(/ABSC-(\d+)/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    const nextNum = maxNum + 1;
+    return `ABSC-${String(nextNum).padStart(4, '0')}`;
+  };
+
+  const getCurrentTimeWib = (): string => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes} WIB`;
+  };
+
+  const getCurrentTimeWithSecondsWib = (): string => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds} WIB`;
+  };
+
+  // Public Registration Handler -> POST /api/register
+  const handleRegister = async (newPassData: {
+    fullName: string;
+    nisnOrNip: string;
+    schoolId: number;
+    schoolOrigin: string;
+    role: AttendeeRole;
+    trialClass: TrialClassType;
+    infoSource: InfoSourceType;
+    infoSourceDetail?: string;
+  }): Promise<AttendeePass> => {
+    const backendRole = newPassData.role === 'Siswa' ? 'siswa' : 'guru_pendamping';
+
+    const participant = await api.registerParticipant({
+      role: backendRole,
+      name: newPassData.fullName,
+      identity_number: newPassData.nisnOrNip,
+      school_id: newPassData.schoolId,
+      trial_class: newPassData.trialClass,
+      referral_source: newPassData.infoSource,
+      referral_detail: newPassData.infoSourceDetail || null,
+    });
+
+    const newPass = mapBackendToAttendeePass(participant);
+
+    setAttendees((prev) => [newPass, ...prev]);
+    setMyCreatedPass(newPass);
+    setMyCreatedPassId(newPass.id);
+    setUserStep('my-ticket');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return newPass;
+  };
+
+  // Admin Walk-In Registration Handler -> POST /api/admin/participants
+  const handleAdminRegister = async (newPassData: {
+    fullName: string;
+    nisnOrNip: string;
+    schoolId: number;
+    schoolOrigin: string;
+    role: AttendeeRole;
+    trialClass: TrialClassType;
+    infoSource: InfoSourceType;
+    infoSourceDetail?: string;
+  }) => {
+    if (!adminToken) throw new Error('Sesi admin berakhir. Silakan login kembali.');
+
+    const backendRole = newPassData.role === 'Siswa' ? 'siswa' : 'guru_pendamping';
+    const participant = await api.adminRegisterParticipant(adminToken, {
+      role: backendRole,
+      name: newPassData.fullName,
+      identity_number: newPassData.nisnOrNip,
+      school_id: newPassData.schoolId,
+      trial_class: newPassData.trialClass,
+      referral_source: newPassData.infoSource,
+      referral_detail: newPassData.infoSourceDetail || null,
+    });
+
+    const newPass = mapBackendToAttendeePass(participant);
+    newPass.registrationSource = 'Walk-In';
+    setAttendees((prev) => [newPass, ...prev]);
+  };
+
+  // Admin Coupon Scan Handler -> POST /api/admin/coupons/scan
+  const handleProcessScanCode = async (
+    rawCode: string,
+    method: 'auto' | 'manual'
+  ): Promise<ScanFeedback> => {
+    const code = rawCode.trim().toUpperCase();
+    const timestamp = getCurrentTimeWib();
+    const fullTimestamp = getCurrentTimeWithSecondsWib();
+
+    if (!adminToken) {
+      const fb: ScanFeedback = {
+        id: `scan-${Date.now()}`,
+        type: 'invalid',
+        title: 'Sesi Admin Berakhir',
+        message: 'Silakan login kembali sebagai admin untuk memindai kupon.',
+        codeScanned: code,
+        timestamp,
+      };
+      setScanFeedback(fb);
+      return fb;
+    }
+
+    try {
+      const res = await api.scanCoupon(adminToken, code);
+      const updatedPass = mapBackendToAttendeePass(res.data);
+
+      // Update in local attendees array
+      setAttendees((prev) => {
+        const index = prev.findIndex((a) => a.id === updatedPass.id);
+        if (index >= 0) {
+          const next = [...prev];
+          next[index] = updatedPass;
+          return next;
+        }
+        return [updatedPass, ...prev];
+      });
+
+      // Also update myCreatedPass if it matches
+      if (myCreatedPass && myCreatedPass.couponCode.toUpperCase() === code) {
+        setMyCreatedPass(updatedPass);
+      }
+
+      const successEntry: ScanLogEntry = {
+        id: `log-${Date.now()}`,
+        timestamp: fullTimestamp,
+        relativeTime: 'Baru saja',
+        couponCode: updatedPass.couponCode,
+        fullName: updatedPass.fullName,
+        schoolOrigin: updatedPass.schoolOrigin,
+        role: updatedPass.role,
+        trialClass: updatedPass.trialClass,
+        infoSource: updatedPass.infoSource,
+        infoSourceDetail: updatedPass.infoSourceDetail,
+        scanMethod: method,
+        status: method === 'manual' ? 'manual' : 'success',
+        statusText: '200 Valid',
+        deskName: adminUser ? `Admin ${adminUser.name}` : 'Admin Loket 01',
+        verifierNote: method === 'manual' ? 'Input Manual Loket' : 'Scan Terverifikasi',
+      };
+      setScanLogs((prev) => [successEntry, ...prev]);
+
+      const fb: ScanFeedback = {
+        id: `scan-${Date.now()}`,
+        type: 'success',
+        title: 'Kehadiran & Kupon Terverifikasi',
+        message: `Selamat datang, ${updatedPass.fullName}! Kehadiran tercatat pada ${timestamp}.`,
+        codeScanned: code,
+        pass: updatedPass,
+        timestamp,
+      };
+      setScanFeedback(fb);
+      return fb;
+    } catch (err: any) {
+      const errMsg: string = err.message || '';
+      const isDuplicate =
+        err.status === 422 &&
+        (errMsg.toLowerCase().includes('sudah') || errMsg.toLowerCase().includes('di-scan'));
+
+      const existingTarget = attendees.find((a) => a.couponCode.toUpperCase() === code);
+
+      if (isDuplicate) {
+        const duplicateEntry: ScanLogEntry = {
+          id: `log-${Date.now()}`,
+          timestamp: fullTimestamp,
+          relativeTime: 'Baru saja',
+          couponCode: existingTarget?.couponCode || code,
+          fullName: existingTarget?.fullName || 'Peserta Terdaftar',
+          schoolOrigin: existingTarget?.schoolOrigin || 'Sekolah Terdaftar',
+          role: existingTarget?.role || 'Siswa',
+          trialClass: existingTarget?.trialClass || 'IT',
+          infoSource: existingTarget?.infoSource || 'Website',
+          infoSourceDetail: existingTarget?.infoSourceDetail,
+          scanMethod: method,
+          status: 'rejected',
+          statusText: '422 Duplikat',
+          subStatusText: existingTarget?.checkedInAt
+            ? `Sudah diverifikasi ${existingTarget.checkedInAt}`
+            : 'Sudah di-scan sebelumnya',
+          deskName: adminUser ? `Admin ${adminUser.name}` : 'Admin Loket 01',
+          verifierNote: 'Pencegahan Double-Scan',
+        };
+        setScanLogs((prev) => [duplicateEntry, ...prev]);
+
+        const fb: ScanFeedback = {
+          id: `scan-${Date.now()}`,
+          type: 'duplicate',
+          title: 'Peringatan: Kupon Sudah Di-scan',
+          message:
+            errMsg ||
+            `Kupon ${code} milik ${existingTarget?.fullName || 'peserta'} sudah pernah diverifikasi sebelumnya.`,
+          codeScanned: code,
+          pass: existingTarget,
+          timestamp,
+        };
+        setScanFeedback(fb);
+        return fb;
+      }
+
+      // Invalid / Not found
+      const rejectedEntry: ScanLogEntry = {
+        id: `log-${Date.now()}`,
+        timestamp: fullTimestamp,
+        relativeTime: 'Baru saja',
+        couponCode: code,
+        fullName: 'Kupon Tidak Dikenali',
+        schoolOrigin: 'Kode Tidak Valid',
+        role: 'Siswa',
+        trialClass: 'IT',
+        infoSource: 'Website',
+        scanMethod: method,
+        status: 'rejected',
+        statusText: '422 Tidak Valid',
+        subStatusText: errMsg || 'Kode tidak terdaftar',
+        deskName: adminUser ? `Admin ${adminUser.name}` : 'Admin Loket 01',
+        verifierNote: 'Auto-Blocked',
+      };
+      setScanLogs((prev) => [rejectedEntry, ...prev]);
+
+      const fb: ScanFeedback = {
+        id: `scan-${Date.now()}`,
+        type: 'invalid',
+        title: 'Kode Kupon Tidak Terdaftar',
+        message:
+          errMsg ||
+          `Kode "${code}" tidak ditemukan dalam basis data peserta Open House 2026.`,
+        codeScanned: code,
+        timestamp,
+      };
+      setScanFeedback(fb);
+      return fb;
+    }
+  };
+
+  const handleQuickRedeem = async (passId: string) => {
+    const target = attendees.find((a) => a.id === passId);
+    if (!target) return;
+    await handleProcessScanCode(target.couponCode, 'manual');
+  };
+
+  const handleDeleteAttendee = async (passId: string) => {
+    if (adminToken) {
+      await api.deleteParticipant(adminToken, passId);
+    }
+    setAttendees((prev) => prev.filter((a) => a.id !== passId));
+    if (myCreatedPassId === passId) {
+      setMyCreatedPassId(null);
+      setMyCreatedPass(null);
+      localStorage.removeItem(STORAGE_KEY_MY_PASS_ID);
+      localStorage.removeItem(STORAGE_KEY_MY_PASS_DATA);
+      setUserStep('form');
+    }
+  };
+
+  // =========================================================================
+  // RENDER ADMIN ROLE (Scanner Mode, Riwayat Aktivitas, Data Peserta)
+  // =========================================================================
+  if (roleMode === 'admin') {
+    return (
+      <>
+        <AdminScannerDesk
+          attendees={attendees}
+          scanLogs={scanLogs}
+          activePage={adminPage}
+          onChangePage={(page) => setAdminPage(page)}
+          onProcessScanCode={handleProcessScanCode}
+          onQuickRedeem={handleQuickRedeem}
+          onDeleteAttendee={handleDeleteAttendee}
+          onLogout={handleAdminLogout}
+          schools={schools}
+          onAdminRegister={handleAdminRegister}
+          onRefreshData={handleRefreshParticipants}
+          isRefreshing={isRefreshingParticipants}
+        />
+        <ScannerModal feedback={scanFeedback} onClose={() => setScanFeedback(null)} />
+      </>
+    );
+  }
+
+  // =========================================================================
+  // RENDER REGULAR USER ROLE (Welcome Hero -> Form -> QR Ticket)
+  // =========================================================================
+  return (
+    <div className="min-h-screen flex flex-col bg-[#FFF3E3]">
+      {/* Header */}
+      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#E2E8F0] no-print">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 lg:px-8 h-16">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <img
+              alt="EduPass Logo"
+              referrerPolicy="no-referrer"
+              className="h-6 sm:h-7 w-auto object-contain shrink-0"
+              src={EDUPASS_LOGO_URL}
+            />
+            <span className="font-display text-[15px] sm:text-[18px] font-bold tracking-tight text-[#181b2b] truncate">
+              <span className="hidden sm:inline">EduPass Open House</span>
+              <span className="sm:hidden">EduPass</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {myCreatedPass && (
+              <button
+                type="button"
+                onClick={() => setUserStep(userStep === 'form' ? 'my-ticket' : 'form')}
+                className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-[#f4f2ff] hover:bg-[#e5e6fe] text-[#32328a] text-[12px] sm:text-[13px] font-semibold inline-flex items-center gap-1 sm:gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <Ticket className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                <span>
+                  {userStep === 'form' ? (
+                    <>
+                      <span className="hidden md:inline">
+                        Lihat Tiket Saya ({myCreatedPass.couponCode})
+                      </span>
+                      <span className="hidden sm:inline md:hidden">
+                        Tiket ({myCreatedPass.couponCode})
+                      </span>
+                      <span className="sm:hidden">Tiket Saya</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="hidden sm:inline">Buat Pendaftaran Baru</span>
+                      <span className="sm:hidden">Daftar Baru</span>
+                    </>
+                  )}
+                </span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={openLoginModal}
+              className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-[#181b2b] hover:bg-[#2c2f41] text-white text-[12px] sm:text-[13px] font-medium inline-flex items-center gap-1 sm:gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <span className="material-symbols-outlined text-[15px] sm:text-[16px] text-[#9fa0ff]">
+                admin_panel_settings
+              </span>
+              <span>
+                <span className="hidden sm:inline">Login Admin</span>
+                <span className="sm:hidden">Admin</span>
+              </span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Admin Login Popup Modal */}
+      {isLoginModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#181b2b]/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
+          onClick={closeLoginModal}
+        >
+          <div
+            className="bg-white rounded-[24px] max-w-md w-full p-5 sm:p-7 shadow-[0_24px_60px_rgba(24,27,43,0.2)] border border-[#E2E8F0] relative my-auto max-h-[92vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={closeLoginModal}
+              aria-label="Tutup modal login"
+              className="absolute top-4 right-4 sm:top-5 sm:right-5 w-9 h-9 rounded-full bg-[#F8FAFC] hover:bg-[#E2E8F0]/70 text-[#464651] flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Modal Header */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-11 h-11 rounded-2xl bg-[#181b2b] flex items-center justify-center text-[#9FA0FF] shrink-0">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-display text-[19px] font-bold text-[#181b2b] leading-tight">
+                  Autentikasi Admin Loket
+                </h3>
+                <p className="text-[13px] text-[#464651] mt-0.5">
+                  Masukkan kredensial admin untuk mengakses konsol dan scanner.
+                </p>
+              </div>
+            </div>
+
+            {loginError && (
+              <div className="mb-4 rounded-xl bg-[#ffdad6]/70 border border-[#ba1a1a]/20 px-3.5 py-2.5 flex items-start gap-2.5 text-[#ba1a1a] text-[13px]">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span className="font-medium leading-snug">{loginError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAdminLoginSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[13px] font-semibold text-[#181b2b] mb-1.5">
+                  Username Admin
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-[#777682] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    autoFocus
+                    value={adminUsername}
+                    onChange={(e) => {
+                      setAdminUsername(e.target.value);
+                      if (loginError) setLoginError(null);
+                    }}
+                    placeholder="Masukkan username admin"
+                    className="w-full h-12 pl-10 pr-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-[14px] text-[#181b2b] focus:outline-none focus:bg-white focus:border-[#4b4ca3] focus:ring-2 focus:ring-[#9FA0FF]/30 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-semibold text-[#181b2b] mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-[#777682] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={adminPassword}
+                    onChange={(e) => {
+                      setAdminPassword(e.target.value);
+                      if (loginError) setLoginError(null);
+                    }}
+                    placeholder="Masukkan password"
+                    className="w-full h-12 pl-10 pr-11 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-[14px] text-[#181b2b] focus:outline-none focus:bg-white focus:border-[#4b4ca3] focus:ring-2 focus:ring-[#9FA0FF]/30 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg text-[#777682] hover:text-[#181b2b] flex items-center justify-center cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={closeLoginModal}
+                  className="h-11 px-4 rounded-xl bg-[#F8FAFC] hover:bg-[#E2E8F0]/70 text-[#464651] text-[13px] font-semibold transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoggingIn}
+                  className="h-11 px-5 rounded-xl bg-[#181b2b] hover:bg-[#2c2f41] text-white text-[13px] font-semibold inline-flex items-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-60"
+                >
+                  {isLoggingIn ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Memverifikasi...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[17px] text-[#9FA0FF]">
+                        login
+                      </span>
+                      <span>Masuk sebagai Admin</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content for Regular User */}
+      <main className="flex-1">
+        {userStep === 'my-ticket' && myCreatedPass ? (
+          <div className="max-w-xl lg:max-w-2xl mx-auto px-3 sm:px-6 py-6 sm:py-10 space-y-5">
+            {/* Success Confirmation Banner */}
+            <div className="rounded-[20px] bg-[#D5E8E6] border border-[#506260]/25 px-4 sm:px-5 py-4 flex items-start gap-3 sm:gap-3.5 shadow-resting-card no-print">
+              <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#506260] shrink-0 mt-0.5 shadow-2xs">
+                <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-display text-[16px] sm:text-[17px] font-bold text-[#181b2b]">
+                  Tiket QR Anda Berhasil Dibuat!
+                </h2>
+                <p className="text-[12px] sm:text-[13px] text-[#464651] mt-0.5 leading-relaxed">
+                  Tunjukkan QR Code{' '}
+                  <span className="font-mono-code font-bold text-[#181b2b]">
+                    {myCreatedPass.couponCode}
+                  </span>{' '}
+                  di bawah ini kepada petugas saat tiba di loket acara.
+                </p>
+              </div>
+            </div>
+
+            {/* User's Created QR Ticket */}
+            <DigitalPassCard pass={myCreatedPass} canvasBg="cream" />
+
+            {/* Action to Register Another Ticket */}
+            <div className="text-center pt-2 pb-6 no-print">
+              <button
+                type="button"
+                onClick={() => setUserStep('form')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] sm:text-[14px] font-medium text-[#464651] hover:text-[#181b2b] hover:bg-black/5 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Kembali ke Halaman Sambutan &amp; Formulir</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <RegistrationView
+            attendees={attendees}
+            schools={schools}
+            isLoadingSchools={isLoadingSchools}
+            nextCouponCode={getNextCouponCode()}
+            onRegister={handleRegister}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
