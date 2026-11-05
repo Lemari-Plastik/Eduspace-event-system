@@ -86,17 +86,25 @@ https://absence-backend-username.wasmer.app
 ```
 
 ### 3. Masukkan Database URL & App Key ke Wasmer Secrets
-Jalankan perintah berikut untuk menyematkan kredensial database dan kunci Laravel ke aplikasi Wasmer Edge Anda:
+Jalankan perintah `create` (atau `update` jika sudah pernah dibuat) dengan flag `--redeploy`:
 
 ```bash
-# Set DATABASE_URL dari Neon
-wasmer app secrets set DATABASE_URL "PASTE_URL_NEON_ANDA_DI_SINI"
+# Tambahkan DATABASE_URL dari Neon
+wasmer app secret create --redeploy DATABASE_URL "PASTE_URL_NEON_ANDA_DI_SINI"
 
-# Set APP_KEY Laravel
-wasmer app secrets set APP_KEY "base64:8i7uR5eAPqRkmx0h/2poX+qXQxlU2rezMGG8lleDcTY="
+# Tambahkan APP_KEY Laravel
+wasmer app secret create --redeploy APP_KEY "base64:8i7uR5eAPqRkmx0h/2poX+qXQxlU2rezMGG8lleDcTY="
 ```
 
-Backend Anda sekarang sudah online dan terhubung langsung ke database PostgreSQL Neon!
+*(Catatan: Jika secret sudah ada dan ingin diubah, gunakan perintah `wasmer app secret update ...`)*
+
+#### Alternatif Melalui Web Dashboard Wasmer (Tanpa Terminal):
+1. Buka [https://wasmer.io](https://wasmer.io) -> masuk ke dashboard app Anda (`absence-backend`).
+2. Masuk ke tab **Secrets**.
+3. Klik **"Create Secret"**:
+   - Name: `DATABASE_URL` | Value: `postgresql://neondb_owner:...`
+   - Name: `APP_KEY` | Value: `base64:8i7uR5eAPqRkmx0h/2poX+qXQxlU2rezMGG8lleDcTY=`
+4. Klik **Save / Deploy**.
 
 ---
 
