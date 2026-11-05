@@ -15,3 +15,5 @@ capabilities:
     requests:
       - path: /up
 
+owner: lemari-plastik
+app_id: da_2yGI9trUx6Zz
