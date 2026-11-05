@@ -1,0 +1,16 @@
+kind: wasmer.io/App.v0
+name: absence-backend
+package: .
+
+env:
+  APP_NAME: EduPass
+  APP_ENV: production
+  APP_DEBUG: "false"
+  DB_CONNECTION: pgsql
+  LOG_CHANNEL: stderr
+  FRONTEND_URL: "*"
+
+capabilities:
+  instaboot:
+    requests:
+      - path: /up

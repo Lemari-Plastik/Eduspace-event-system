@@ -1,0 +1,18 @@
+[package]
+name = "absence-backend"
+version = "1.0.0"
+description = "Absence Registration & Coupon Management API on Wasmer Edge"
+
+[dependencies]
+"php/php" = "=8.3.4"
+
+[fs]
+"/app/" = "."
+
+[[command]]
+name = "run"
+module = "php/php:php"
+runner = "wasi"
+
+[command.annotations.wasi]
+main-args = ["-t", "/app/public", "-S", "0.0.0.0:8080"]

@@ -1,191 +1,135 @@
-# Panduan Deployment 100% Gratis (Tanpa Kartu Kredit)
+# Panduan Deployment: Wasmer.io + Neon PostgreSQL + Vercel
 ## Absence Registration & Coupon Management System
 
-Panduan ini disusun khusus agar Anda dapat melakukan deployment seluruh sistem **tanpa perlu memasukkan kartu kredit (No Credit Card Required)**:
+Panduan final deployment sistem **Absence** dengan arsitektur 100% gratis tanpa memerlukan kartu kredit:
 
-- **Database:** [Neon.tech](https://neon.tech) — Serverless PostgreSQL Gratis Selamanya (Tanpa Kartu Kredit, Data Tidak Kedaluwarsa)
-- **Backend:** [Render.com](https://render.com) — Manual Web Service Docker Gratis (Tanpa Kartu Kredit)
-- **Frontend:** [Vercel](https://vercel.com) — React 19 + Vite (Tanpa Kartu Kredit)
-
----
-
-## Mengapa Render Meminta Kartu Kredit & Cara Menghindarinya?
-
-Ada 2 penyebab utama mengapa Render meminta verifikasi kartu kredit:
-1. **Fitur Blueprint (`render.yaml`):** Render menerapkan verifikasi kartu kredit pada semua setup otomatis berbasis Infrastructure-as-Code (Blueprint) untuk mencegah bot/spam, meskipun semua komponen diatur ke gratis.
-2. **Database PostgreSQL Bawaan Render:** Secara default memilih paket berbayar ($7/bulan), dan versi gratisnya memiliki limitasi buruk (**dihapus otomatis setelah 30 hari**).
-
-### Solusi Terbaik (100% Gratis & Tanpa Kartu Kredit):
-* **Gunakan [Neon.tech](https://neon.tech) untuk Database PostgreSQL:** Daftar menggunakan akun GitHub dalam 10 detik, 100% gratis, **tidak meminta kartu kredit**, dan database Anda **aktif selamanya** (tidak kedaluwarsa setelah 30 hari).
-* **Gunakan Manual Web Service di Render (Bukan Blueprint):** Render **TIDAK** meminta kartu kredit jika Anda membuat **Web Service** secara manual dengan memilih paket **Free ($0)**.
+- **Backend:** [Wasmer.io](https://wasmer.io) — WebAssembly Serverless Edge (CLI `wasmer deploy`)
+- **Database:** [Neon.tech](https://neon.tech) — Serverless PostgreSQL Gratis Selamanya
+- **Frontend:** [Vercel](https://vercel.com) — React 19 + TypeScript + Vite
 
 ---
 
-## 1. Arsitektur Deployment Tanpa Kartu Kredit
+## 1. Arsitektur Sistem
 
 ```
-                           +---------------------------+
-                           |        GitHub Repo        |
-                           |  (main / master branch)   |
-                           +-------------+-------------+
-                                         |
-                   +---------------------+---------------------+
-                   | git push                                  | git push
-                   v                                           v
-       +-----------------------+                   +-----------------------+
-       |     VERCEL (Frontend) |                   |    RENDER (Backend)   |
-       |  React + Vite + TS    |                   |  Docker Web Service   |
-       |  (No Credit Card)     |                   |  (No Credit Card)     |
-       |  https://*.vercel.app |                   |  https://*.onrender   |
-       +-----------+-----------+                   +-----------+-----------+
-                   |                                           |
-                   | API Request (HTTPS / Bearer Token)        | PostgreSQL SSL (TCP 5432)
-                   +------------------------------------------>|
-                                                               v
-                                                   +-----------------------+
-                                                   |    NEON.TECH (DB)     |
-                                                   | Serverless PostgreSQL |
-                                                   | (No Credit Card / Perm|
-                                                   +-----------------------+
+       +--------------------------------------------------------+
+       |               FRONTEND: VERCEL                         |
+       |  React + TypeScript + Vite                             |
+       |  URL: https://your-project.vercel.app                  |
+       +---------------------------+----------------------------+
+                                   |
+                                   | HTTPS API Calls (/api)
+                                   v
+       +--------------------------------------------------------+
+       |               BACKEND: WASMER.IO                       |
+       |  Laravel 11 running on Wasmer Edge (WASI / PHP 8.3)    |
+       |  URL: https://absence-backend-<user>.wasmer.app       |
+       +---------------------------+----------------------------+
+                                   |
+                                   | PostgreSQL SSL Connection (Port 5432)
+                                   v
+       +--------------------------------------------------------+
+       |               DATABASE: NEON.TECH                      |
+       |  Serverless PostgreSQL (No Credit Card / Permanent)    |
+       |  URI: postgresql://neondb_owner:...@ep-xxx.neon.tech   |
+       +--------------------------------------------------------+
 ```
 
 ---
 
-## 2. Langkah 1: Buat Database PostgreSQL di Neon.tech (30 Detik)
+## 2. Langkah 1: Persiapan Database di Neon.tech
 
-1. Buka [https://neon.tech](https://neon.tech).
-2. Klik **"Sign Up"** dan pilih **"Continue with GitHub"** (Tidak ada formulir kartu kredit sama sekali).
-3. Setelah masuk, beri nama proyek Anda, contoh: `absence-db`.
-4. Pilih region yang paling dekat (misalnya: `Asia Pacific (Singapore)`).
-5. Klik **"Create Project"**.
-6. Pada dashboard Neon, Anda akan langsung melihat kotak **Connection Details**.
-7. Pastikan dropdown memilih **"Connection string"** dan formatnya adalah **URI**:
+1. Buka [https://neon.tech](https://neon.tech) dan login dengan akun GitHub Anda (Gratis, Tanpa Kartu Kredit).
+2. Buat project baru bernama `absence-db` di region terdekat (misal: `Asia Pacific (Singapore)`).
+3. Salin **Connection String (URI)** Anda dari dashboard Neon, contoh:
    ```
    postgresql://neondb_owner:nXXXXXXXXXX@ep-cool-fog-123456.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
    ```
-8. Klik tombol **Copy**. Simpan URL ini, ini adalah nilai `DATABASE_URL` Anda!
 
----
-
-## 3. Langkah 2: Push Kode ke Repositori GitHub
-
-Pastikan seluruh file project sudah di-commit dan di-push ke GitHub:
+### Jalankan Migrasi & Seeding Database ke Neon dari Lokal:
+Jalankan perintah ini di terminal lokal Anda agar tabel dan data awal sekolah serta admin langsung terisi di database Neon:
 
 ```bash
-# Buka terminal di folder root project
-cd /home/ark/absence
+cd /home/ark/absence/absence-backend
 
-# Inisialisasi git jika belum
-git init
+# Jalankan migrasi ke Neon
+DATABASE_URL="PASTE_URL_NEON_ANDA_DI_SINI" php artisan migrate --force
 
-# Tambahkan semua file (file lokal .env sudah otomatis diabaikan oleh .gitignore)
-git add .
-
-# Commit
-git commit -m "feat: production ready for neon db render and vercel"
-
-# Set branch ke main
-git branch -M main
-
-# Hubungkan ke repository GitHub Anda (ganti dengan URL repo Anda)
-git remote add origin https://github.com/USERNAME_ANDA/absence-event-system.git
-
-# Push ke GitHub
-git push -u origin main
+# Seed daftar sekolah & akun admin awal
+DATABASE_URL="PASTE_URL_NEON_ANDA_DI_SINI" php artisan db:seed --class=SchoolSeeder --force
+DATABASE_URL="PASTE_URL_NEON_ANDA_DI_SINI" php artisan db:seed --class=AdminSeeder --force
 ```
 
 ---
 
-## 4. Langkah 3: Deploy Backend di Render (Manual Web Service)
+## 3. Langkah 2: Deploy Backend ke Wasmer.io
 
-> [!IMPORTANT]
-> **JANGAN MEMILIH "Blueprint"!**
-> Pilihlah **"Web Service"** biasa agar Render tidak meminta verifikasi kartu kredit.
+CLI Wasmer sudah terinstal di komputer Anda (`wasmer 7.5.0`). File konfigurasi [`wasmer.toml`](file:///home/ark/absence/absence-backend/wasmer.toml) dan [`app.yaml`](file:///home/ark/absence/absence-backend/app.yaml) sudah disiapkan di folder `absence-backend`.
 
-1. Buka [https://dashboard.render.com](https://dashboard.render.com).
-2. Klik tombol **"New +"** di kanan atas -> pilih **"Web Service"**.
-3. Pilih opsi **"Build and deploy from a Git repository"** -> klik **"Next"**.
-4. Hubungkan akun GitHub Anda dan pilih repositori `absence-event-system`.
-5. Pada formulir konfigurasi, isi detail berikut:
-   - **Name:** `absence-backend`
-   - **Region:** Pilih region yang sama dengan Neon Anda (misalnya: `Singapore`).
-   - **Branch:** `main`
-   - **Root Directory:** Isi dengan `absence-backend` *(Wajib diisi)*.
-   - **Runtime:** Pilih **Docker**.
-   - **Instance Type / Plan:** Pastikan memilih **Free ($0/month)**.
-6. Gulir ke bawah ke bagian **Environment Variables**, klik **"Add Environment Variable"** dan tambahkan baris berikut satu per satu:
+### 1. Login ke Wasmer
+Buka terminal dan jalankan:
+```bash
+wasmer login
+```
+*(Browser akan terbuka untuk mengonfirmasi login akun Wasmer Anda, atau Anda dapat memasukkan token API Wasmer).*
 
-| Key | Value | Keterangan |
-|---|---|---|
-| `APP_NAME` | `EduPass` | Nama aplikasi |
-| `APP_ENV` | `production` | Mode production |
-| `APP_KEY` | `base64:8i7uR5eAPqRkmx0h/2poX+qXQxlU2rezMGG8lleDcTY=` | Kunci enkripsi Laravel (salin dari `.env` lokal Anda) |
-| `APP_DEBUG` | `false` | Matikan debug mode untuk keamanan |
-| `DB_CONNECTION` | `pgsql` | Driver database PostgreSQL |
-| `DATABASE_URL` | *Paste Connection String dari Neon.tech pada Langkah 2* | Contoh: `postgresql://neondb_owner:...@ep-xxx.neon.tech/neondb?sslmode=require` |
-| `LOG_CHANNEL` | `stderr` | Menyalurkan log aplikasi ke console Render |
-| `FRONTEND_URL` | `*` | Izin CORS (nanti bisa diupdate dengan URL Vercel) |
+### 2. Deploy Aplikasi Backend
+Masuk ke folder `absence-backend` dan jalankan:
+```bash
+cd /home/ark/absence/absence-backend
+wasmer deploy
+```
 
-7. Klik tombol **"Create Web Service"**.
-8. Render akan langsung mem-build Docker container, menjalankan migrasi database ke Neon.tech, men-seed sekolah dan admin secara otomatis, lalu mengaktifkan server Nginx + PHP-FPM.
-9. Setelah status berubah menjadi **"Live"**, salin URL publik backend Anda di bagian atas, contoh:
-   ```
-   https://absence-backend-xxxx.onrender.com
-   ```
+CLI Wasmer akan memvalidasi package PHP, mengunggah ke Wasmer Edge, dan memberikan URL publik aplikasi Anda, contoh:
+```
+https://absence-backend-username.wasmer.app
+```
+
+### 3. Masukkan Database URL & App Key ke Wasmer Secrets
+Jalankan perintah berikut untuk menyematkan kredensial database dan kunci Laravel ke aplikasi Wasmer Edge Anda:
+
+```bash
+# Set DATABASE_URL dari Neon
+wasmer app secrets set DATABASE_URL "PASTE_URL_NEON_ANDA_DI_SINI"
+
+# Set APP_KEY Laravel
+wasmer app secrets set APP_KEY "base64:8i7uR5eAPqRkmx0h/2poX+qXQxlU2rezMGG8lleDcTY="
+```
+
+Backend Anda sekarang sudah online dan terhubung langsung ke database PostgreSQL Neon!
 
 ---
 
-## 5. Langkah 4: Deploy Frontend di Vercel (30 Detik)
+## 4. Langkah 3: Hubungkan Frontend di Vercel
 
-1. Buka [https://vercel.com](https://vercel.com) dan login dengan akun GitHub Anda (Tanpa Kartu Kredit).
-2. Klik **"Add New..."** -> pilih **"Project"**.
-3. Cari repositori Anda (`absence-event-system`) dan klik **"Import"**.
-4. Konfigurasi proyek:
-   - **Framework Preset:** `Vite` (Otomatis terdeteksi).
-   - **Root Directory:** Klik tombol **Edit** -> pilih folder `absence-frontend` -> klik **Continue**.
-5. Buka bagian **Environment Variables**, tambahkan:
+Frontend Anda sudah siap di Vercel. Anda hanya perlu mengarahkan API URL ke Wasmer:
+
+1. Buka [Vercel Dashboard](https://vercel.com) -> pilih proyek `absence-frontend` Anda.
+2. Buka tab **Settings** -> **Environment Variables**.
+3. Edit atau tambahkan variabel:
    - **Key:** `VITE_API_BASE_URL`
-   - **Value:** `https://absence-backend-xxxx.onrender.com/api` *(Pastikan menggunakan URL Render Anda dan diakhiri `/api`)*.
-6. Klik **"Deploy"**.
-7. Dalam ~30 detik, website Anda telah online dengan domain publik, contoh:
-   ```
-   https://absence-frontend-xxxx.vercel.app
-   ```
+   - **Value:** `https://absence-backend-username.wasmer.app/api` *(Ganti dengan URL Wasmer Anda, pastikan berakhiran `/api`)*.
+4. Buka tab **Deployments**, klik titik tiga `...` pada deployment terakhir -> pilih **"Redeploy"**.
+5. Frontend Anda di Vercel sekarang sudah terhubung penuh ke backend Wasmer dan database Neon!
 
 ---
 
-## 6. Langkah 5: Hubungkan CORS
+## 5. Kredensial Admin & Uji Coba
 
-1. Buka kembali dashboard [Render](https://dashboard.render.com) -> pilih service `absence-backend`.
-2. Masuk ke menu **Environment**.
-3. Ubah nilai variabel `FRONTEND_URL` menjadi URL Vercel Anda, contoh:
-   ```
-   FRONTEND_URL=https://absence-frontend-xxxx.vercel.app
-   ```
-4. Tambahkan atau update `APP_URL`:
-   ```
-   APP_URL=https://absence-backend-xxxx.onrender.com
-   ```
-5. Klik **"Save Changes"**. Render akan otomatis merestart service dalam beberapa detik.
+- **Halaman Pendaftaran Publik:** Buka URL Vercel Anda (`https://your-project.vercel.app`).
+  - Dropdown sekolah akan otomatis terisi dengan 10 sekolah dari Neon.
+  - Setelah mengisi form, kupon `ABSC-XXXX` akan otomatis terbit.
+- **Login Admin Loket:**
+  - Klik tombol **"Login Admin"** di kanan atas web Vercel.
+  - **Username:** `admin`
+  - **Password:** `admin123`
+  - Anda dapat langsung melakukan scan barcode kupon atau input manual untuk verifikasi kehadiran.
 
 ---
 
-## 7. Kredensial Login Admin & Uji Coba
+## 6. Ringkasan File Konfigurasi yang Tersedia
 
-- **Akses Dashboard Admin:** Buka web Vercel Anda, klik tombol **"Login Admin"** di pojok kanan atas.
-- **Username:** `admin`
-- **Password:** `admin123`
-
-### Checklist Pengujian:
-- [ ] Dropdown asal sekolah muncul otomatis saat membuka halaman pendaftaran (diambil langsung dari database Neon).
-- [ ] Formulir pendaftaran berhasil menerbitkan tiket digital dengan kode kupon `ABSC-XXXX`.
-- [ ] Login admin berhasil dengan token Sanctum dan membuka console scanner.
-- [ ] Pemindaian kupon berhasil diverifikasi.
-- [ ] Pemindaian ulang kupon yang sama menampilkan peringatan anti-double scan *"Kupon sudah di-scan sebelumnya"*.
-
----
-
-## Keuntungan Menggunakan Setup Ini:
-1. **0 Rupiah & Tanpa Kartu Kredit:** Baik Neon, Render Web Service, maupun Vercel tidak meminta kartu kredit.
-2. **Database Permanen:** Neon PostgreSQL tidak memiliki batas kedaluwarsa 30 hari seperti Render Postgres.
-3. **CI/CD Otomatis:** Setiap kali Anda melakukan `git push origin main`, Vercel dan Render akan langsung memperbarui website Anda secara otomatis.
+1. [**`absence-backend/wasmer.toml`**](file:///home/ark/absence/absence-backend/wasmer.toml): Konfigurasi runtime PHP 8.3 WASI untuk Wasmer Edge.
+2. [**`absence-backend/app.yaml`**](file:///home/ark/absence/absence-backend/app.yaml): Konfigurasi Wasmer Edge App dengan fitur Instaboot.
+3. [**`absence-frontend/vercel.json`**](file:///home/ark/absence/absence-frontend/vercel.json): Konfigurasi SPA rewrite agar tidak terjadi 404 pada Vercel.
+4. [**`absence-backend/config/database.php`**](file:///home/ark/absence/absence-backend/config/database.php#L89): Otomatis membaca variabel `DATABASE_URL` dari Neon.
