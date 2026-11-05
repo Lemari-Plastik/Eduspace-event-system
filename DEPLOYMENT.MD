@@ -80,9 +80,9 @@ cd /home/ark/absence/absence-backend
 wasmer deploy
 ```
 
-CLI Wasmer akan memvalidasi package PHP, mengunggah ke Wasmer Edge, dan memberikan URL publik aplikasi Anda, contoh:
+CLI Wasmer akan memvalidasi package PHP, mengunggah ke Wasmer Edge, dan memberikan URL publik aplikasi Anda:
 ```
-https://absence-backend-username.wasmer.app
+https://absence-backend.wasmer.app
 ```
 
 ### 3. Masukkan Database URL & App Key ke Wasmer Secrets
@@ -116,7 +116,7 @@ Frontend Anda sudah siap di Vercel. Anda hanya perlu mengarahkan API URL ke Wasm
 2. Buka tab **Settings** -> **Environment Variables**.
 3. Edit atau tambahkan variabel:
    - **Key:** `VITE_API_BASE_URL`
-   - **Value:** `https://absence-backend-username.wasmer.app/api` *(Ganti dengan URL Wasmer Anda, pastikan berakhiran `/api`)*.
+   - **Value:** `https://absence-backend.wasmer.app/api` *(Pastikan berakhiran `/api`)*.
 4. Buka tab **Deployments**, klik titik tiga `...` pada deployment terakhir -> pilih **"Redeploy"**.
 5. Frontend Anda di Vercel sekarang sudah terhubung penuh ke backend Wasmer dan database Neon!
 
