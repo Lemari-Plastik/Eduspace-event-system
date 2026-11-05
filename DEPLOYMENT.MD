@@ -1,14 +1,27 @@
-# Panduan Deployment: Absence Registration & Coupon Management System
+# Panduan Deployment 100% Gratis (Tanpa Kartu Kredit)
+## Absence Registration & Coupon Management System
 
-Panduan lengkap untuk melakukan deployment sistem **Absence** ke cloud production:
-- **Frontend:** [Vercel](https://vercel.com) (React 19 + TypeScript + Vite)
-- **Backend:** [Render.com](https://render.com) (Dockerized Laravel 11 REST API)
-- **Database:** [Render PostgreSQL](https://render.com) (Managed Cloud Database)
-- **CI/CD:** Otomatis deploy setiap kali melakukan `git push` ke repositori GitHub.
+Panduan ini disusun khusus agar Anda dapat melakukan deployment seluruh sistem **tanpa perlu memasukkan kartu kredit (No Credit Card Required)**:
+
+- **Database:** [Neon.tech](https://neon.tech) — Serverless PostgreSQL Gratis Selamanya (Tanpa Kartu Kredit, Data Tidak Kedaluwarsa)
+- **Backend:** [Render.com](https://render.com) — Manual Web Service Docker Gratis (Tanpa Kartu Kredit)
+- **Frontend:** [Vercel](https://vercel.com) — React 19 + Vite (Tanpa Kartu Kredit)
 
 ---
 
-## 1. Arsitektur Deployment & Alur Kerja
+## Mengapa Render Meminta Kartu Kredit & Cara Menghindarinya?
+
+Ada 2 penyebab utama mengapa Render meminta verifikasi kartu kredit:
+1. **Fitur Blueprint (`render.yaml`):** Render menerapkan verifikasi kartu kredit pada semua setup otomatis berbasis Infrastructure-as-Code (Blueprint) untuk mencegah bot/spam, meskipun semua komponen diatur ke gratis.
+2. **Database PostgreSQL Bawaan Render:** Secara default memilih paket berbayar ($7/bulan), dan versi gratisnya memiliki limitasi buruk (**dihapus otomatis setelah 30 hari**).
+
+### Solusi Terbaik (100% Gratis & Tanpa Kartu Kredit):
+* **Gunakan [Neon.tech](https://neon.tech) untuk Database PostgreSQL:** Daftar menggunakan akun GitHub dalam 10 detik, 100% gratis, **tidak meminta kartu kredit**, dan database Anda **aktif selamanya** (tidak kedaluwarsa setelah 30 hari).
+* **Gunakan Manual Web Service di Render (Bukan Blueprint):** Render **TIDAK** meminta kartu kredit jika Anda membuat **Web Service** secara manual dengan memilih paket **Free ($0)**.
+
+---
+
+## 1. Arsitektur Deployment Tanpa Kartu Kredit
 
 ```
                            +---------------------------+
@@ -21,47 +34,60 @@ Panduan lengkap untuk melakukan deployment sistem **Absence** ke cloud productio
                    v                                           v
        +-----------------------+                   +-----------------------+
        |     VERCEL (Frontend) |                   |    RENDER (Backend)   |
-       |  React + Vite + TS    |                   |  Docker + Nginx + PHP |
+       |  React + Vite + TS    |                   |  Docker Web Service   |
+       |  (No Credit Card)     |                   |  (No Credit Card)     |
        |  https://*.vercel.app |                   |  https://*.onrender   |
        +-----------+-----------+                   +-----------+-----------+
                    |                                           |
-                   | API Request (HTTPS / Bearer Token)        | Internal TCP (5432)
+                   | API Request (HTTPS / Bearer Token)        | PostgreSQL SSL (TCP 5432)
                    +------------------------------------------>|
                                                                v
                                                    +-----------------------+
-                                                   |   RENDER POSTGRESQL   |
-                                                   |    Managed Database   |
+                                                   |    NEON.TECH (DB)     |
+                                                   | Serverless PostgreSQL |
+                                                   | (No Credit Card / Perm|
                                                    +-----------------------+
 ```
 
 ---
 
-## 2. Persiapan Repositori GitHub
+## 2. Langkah 1: Buat Database PostgreSQL di Neon.tech (30 Detik)
 
-Sistem ini disusun sebagai **Monorepo** yang memuat folder `absence-backend` dan `absence-frontend`.
+1. Buka [https://neon.tech](https://neon.tech).
+2. Klik **"Sign Up"** dan pilih **"Continue with GitHub"** (Tidak ada formulir kartu kredit sama sekali).
+3. Setelah masuk, beri nama proyek Anda, contoh: `absence-db`.
+4. Pilih region yang paling dekat (misalnya: `Asia Pacific (Singapore)`).
+5. Klik **"Create Project"**.
+6. Pada dashboard Neon, Anda akan langsung melihat kotak **Connection Details**.
+7. Pastikan dropdown memilih **"Connection string"** dan formatnya adalah **URI**:
+   ```
+   postgresql://neondb_owner:nXXXXXXXXXX@ep-cool-fog-123456.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+   ```
+8. Klik tombol **Copy**. Simpan URL ini, ini adalah nilai `DATABASE_URL` Anda!
 
-### Langkah Inisialisasi & Push ke GitHub:
+---
 
-1. Buat repositori baru di akun GitHub Anda (misalnya: `absence-event-system`), biarkan repositori dalam keadaan kosong tanpa mencentang README.
-2. Buka terminal di folder root project (`/home/ark/absence`):
+## 3. Langkah 2: Push Kode ke Repositori GitHub
+
+Pastikan seluruh file project sudah di-commit dan di-push ke GitHub:
 
 ```bash
-# Masuk ke folder root project
+# Buka terminal di folder root project
 cd /home/ark/absence
 
-# Inisialisasi git pada root project (jika belum)
+# Inisialisasi git jika belum
 git init
 
-# Tambahkan seluruh file ke staging (.gitignore root sudah mengabaikan file sensitif .env, vendor, node_modules)
+# Tambahkan semua file (file lokal .env sudah otomatis diabaikan oleh .gitignore)
 git add .
 
-# Buat commit pertama
-git commit -m "feat: complete dockerized laravel backend and vercel frontend"
+# Commit
+git commit -m "feat: production ready for neon db render and vercel"
 
-# Set branch utama ke main
+# Set branch ke main
 git branch -M main
 
-# Hubungkan dengan remote repository GitHub Anda (ganti URL sesuai akun Anda)
+# Hubungkan ke repository GitHub Anda (ganti dengan URL repo Anda)
 git remote add origin https://github.com/USERNAME_ANDA/absence-event-system.git
 
 # Push ke GitHub
@@ -70,220 +96,96 @@ git push -u origin main
 
 ---
 
-## 3. Deployment Database & Backend di Render.com
+## 4. Langkah 3: Deploy Backend di Render (Manual Web Service)
 
-Render menyediakan database PostgreSQL terkelola dan Web Service berbasis Docker. Anda dapat memilih salah satu dari dua cara di bawah ini:
+> [!IMPORTANT]
+> **JANGAN MEMILIH "Blueprint"!**
+> Pilihlah **"Web Service"** biasa agar Render tidak meminta verifikasi kartu kredit.
 
----
-
-### Cara A: 1-Click Deployment Menggunakan Blueprint (`render.yaml`) *(Paling Cepat & Otomatis)*
-
-File konfigurasi [`render.yaml`](file:///home/ark/absence/render.yaml) sudah disediakan di root proyek.
-
-1. Buka [Dashboard Render](https://dashboard.render.com/) dan login menggunakan akun GitHub Anda.
-2. Klik tombol **"New +"** di pojok kanan atas -> pilih **"Blueprint"**.
-3. Pilih repositori GitHub Anda (`absence-event-system`).
-4. Render akan membaca file `render.yaml` dan otomatis mendeteksi:
-   - **1 Database PostgreSQL:** `absence-postgres` (Plan Free).
-   - **1 Web Service Docker:** `absence-backend` yang otomatis terhubung ke database.
-5. Anda akan diminta mengisi nilai variabel `APP_KEY`:
-   - Generate kunci enkripsi baru atau gunakan kunci dari `.env` lokal Anda:
-     ```bash
-     php -r "echo 'base64:'.base64_encode(random_bytes(32)).PHP_EOL;"
-     ```
-   - Masukkan nilai tersebut ke input `APP_KEY`.
-6. Klik **"Apply"**. Render akan membuat database dan mem-build container Docker backend secara otomatis!
-
----
-
-### Cara B: Setup Manual Melalui Dashboard Render
-
-Jika ingin membuat service satu per satu secara manual:
-
-#### Langkah 3.1: Buat PostgreSQL Database di Render
-1. Di [Dashboard Render](https://dashboard.render.com/), klik **"New +"** -> pilih **"PostgreSQL"**.
-2. Isi detail database:
-   - **Name:** `absence-postgres`
-   - **Database:** `absence`
-   - **User:** `abs`
-   - **Region:** Pilih region terdekat (misal: `Singapore` atau `Oregon`).
-   - **Plan:** Pilih **Free**.
-3. Klik **"Create Database"**.
-4. Setelah dibuat, gulir ke bagian **Connections**. Salin nilai **Internal Database URL** (format: `postgres://abs:password@dpg-xxxxxx/absence`).
-
-#### Langkah 3.2: Buat Web Service Docker untuk Backend
-1. Di Dashboard Render, klik **"New +"** -> pilih **"Web Service"**.
-2. Pilih repositori GitHub Anda (`absence-event-system`).
-3. Pada halaman konfigurasi:
+1. Buka [https://dashboard.render.com](https://dashboard.render.com).
+2. Klik tombol **"New +"** di kanan atas -> pilih **"Web Service"**.
+3. Pilih opsi **"Build and deploy from a Git repository"** -> klik **"Next"**.
+4. Hubungkan akun GitHub Anda dan pilih repositori `absence-event-system`.
+5. Pada formulir konfigurasi, isi detail berikut:
    - **Name:** `absence-backend`
-   - **Region:** Pilih region yang sama dengan database PostgreSQL Anda.
+   - **Region:** Pilih region yang sama dengan Neon Anda (misalnya: `Singapore`).
    - **Branch:** `main`
-   - **Root Directory:** Isi dengan `absence-backend`
-   - **Runtime:** Pilih **Docker**
-   - **Plan:** Pilih **Free**
-4. Gulir ke bagian **Environment Variables**, klik **"Add Environment Variable"** dan masukkan:
+   - **Root Directory:** Isi dengan `absence-backend` *(Wajib diisi)*.
+   - **Runtime:** Pilih **Docker**.
+   - **Instance Type / Plan:** Pastikan memilih **Free ($0/month)**.
+6. Gulir ke bawah ke bagian **Environment Variables**, klik **"Add Environment Variable"** dan tambahkan baris berikut satu per satu:
 
-| Key | Value | Catatan |
+| Key | Value | Keterangan |
 |---|---|---|
 | `APP_NAME` | `EduPass` | Nama aplikasi |
 | `APP_ENV` | `production` | Mode production |
-| `APP_KEY` | `base64:8i7uR5eAPqRkmx0h/2poX+qXQxlU2rezMGG8lleDcTY=` | Kunci enkripsi Laravel (32-char base64) |
+| `APP_KEY` | `base64:8i7uR5eAPqRkmx0h/2poX+qXQxlU2rezMGG8lleDcTY=` | Kunci enkripsi Laravel (salin dari `.env` lokal Anda) |
 | `APP_DEBUG` | `false` | Matikan debug mode untuk keamanan |
 | `DB_CONNECTION` | `pgsql` | Driver database PostgreSQL |
-| `DATABASE_URL` | *Paste Internal Database URL dari Langkah 3.1* | Contoh: `postgres://abs:...@dpg-xxx/absence` |
+| `DATABASE_URL` | *Paste Connection String dari Neon.tech pada Langkah 2* | Contoh: `postgresql://neondb_owner:...@ep-xxx.neon.tech/neondb?sslmode=require` |
 | `LOG_CHANNEL` | `stderr` | Menyalurkan log aplikasi ke console Render |
-| `FRONTEND_URL` | `*` (atau domain Vercel Anda setelah dibuat) | Mengizinkan permintaan CORS dari frontend |
+| `FRONTEND_URL` | `*` | Izin CORS (nanti bisa diupdate dengan URL Vercel) |
 
-5. Klik **"Create Web Service"**.
-
----
-
-### Apa yang Dilakukan Dockerfile Otomatis Saat Build di Render?
-
-Container Docker yang telah disediakan ([`absence-backend/Dockerfile`](file:///home/ark/absence/absence-backend/Dockerfile)) bekerja bersama [`docker/entrypoint.sh`](file:///home/ark/absence/absence-backend/docker/entrypoint.sh):
-1. Menginstal runtime PHP 8.2 FPM, Nginx, ekstensi `pdo_pgsql`, `pgsql`, `opcache`, dan `zip`.
-2. Menyesuaikan port Nginx secara dinamis dengan variabel `$PORT` yang diberikan oleh Render.
-3. Otomatis menjalankan migrasi database: `php artisan migrate --force`.
-4. Otomatis men-seed sekolah dan admin default: `SchoolSeeder` dan `AdminSeeder`.
-5. Mengoptimasi cache: `config:cache`, `route:cache`, dan `view:cache`.
-6. Menjalankan Nginx dan PHP-FPM di latar belakang.
+7. Klik tombol **"Create Web Service"**.
+8. Render akan langsung mem-build Docker container, menjalankan migrasi database ke Neon.tech, men-seed sekolah dan admin secara otomatis, lalu mengaktifkan server Nginx + PHP-FPM.
+9. Setelah status berubah menjadi **"Live"**, salin URL publik backend Anda di bagian atas, contoh:
+   ```
+   https://absence-backend-xxxx.onrender.com
+   ```
 
 ---
 
-### Langkah 3.3: Salin URL Publik Backend Render
+## 5. Langkah 4: Deploy Frontend di Vercel (30 Detik)
 
-Setelah deployment selesai dan berstatus **"Live"**, salin URL publik HTTPS backend Anda di bagian atas halaman service Render, contoh:
-```
-https://absence-backend-xxxx.onrender.com
-```
-
----
-
-## 4. Deployment Frontend di Vercel
-
-### Langkah 4.1: Import Proyek ke Vercel
-
-1. Buka [Vercel Dashboard](https://vercel.com) dan login menggunakan akun GitHub Anda.
-2. Klik tombol **"Add New..."** -> pilih **"Project"**.
-3. Temukan repositori GitHub Anda (`absence-event-system`), lalu klik **"Import"**.
-
----
-
-### Langkah 4.2: Konfigurasi Project Settings di Vercel
-
-1. **Project Name:** Beri nama, misalnya `absence-frontend` atau `edupass-openhouse`.
-2. **Framework Preset:** Pilih `Vite`.
-3. **Root Directory:**
-   - Klik tombol **Edit** di samping Root Directory.
-   - Pilih folder `absence-frontend`.
-   - Klik **Continue**.
-4. **Build & Output Settings:**
-   - Build Command: `npm run build` (Default)
-   - Output Directory: `dist` (Default)
+1. Buka [https://vercel.com](https://vercel.com) dan login dengan akun GitHub Anda (Tanpa Kartu Kredit).
+2. Klik **"Add New..."** -> pilih **"Project"**.
+3. Cari repositori Anda (`absence-event-system`) dan klik **"Import"**.
+4. Konfigurasi proyek:
+   - **Framework Preset:** `Vite` (Otomatis terdeteksi).
+   - **Root Directory:** Klik tombol **Edit** -> pilih folder `absence-frontend` -> klik **Continue**.
+5. Buka bagian **Environment Variables**, tambahkan:
+   - **Key:** `VITE_API_BASE_URL`
+   - **Value:** `https://absence-backend-xxxx.onrender.com/api` *(Pastikan menggunakan URL Render Anda dan diakhiri `/api`)*.
+6. Klik **"Deploy"**.
+7. Dalam ~30 detik, website Anda telah online dengan domain publik, contoh:
+   ```
+   https://absence-frontend-xxxx.vercel.app
+   ```
 
 ---
 
-### Langkah 4.3: Tambahkan Environment Variable di Vercel
+## 6. Langkah 5: Hubungkan CORS
 
-Buka menu dropdown **Environment Variables**, tambahkan:
-
-| Key | Value |
-|---|---|
-| `VITE_API_BASE_URL` | `https://absence-backend-xxxx.onrender.com/api` |
-
-*(Ganti `absence-backend-xxxx.onrender.com` dengan URL domain Render yang Anda dapatkan pada Langkah 3.3).*
-
----
-
-### Langkah 4.4: Deploy & SPA Routing
-
-File konfigurasi [`absence-frontend/vercel.json`](file:///home/ark/absence/absence-frontend/vercel.json) sudah otomatis disiapkan di repositori:
-```json
-{
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/"
-    }
-  ]
-}
-```
-File ini memastikan tidak ada error 404 saat pengguna me-refresh halaman browser pada rute React.
-
-Klik tombol **"Deploy"**. Dalam ~30 detik, website Anda akan aktif dan Vercel akan memberikan domain publik, contoh:
-```
-https://absence-frontend-xxxx.vercel.app
-```
-
----
-
-## 5. Hubungkan CORS Frontend & Backend
-
-Setelah mendapatkan domain Vercel Anda:
-
-1. Buka kembali dashboard [Render](https://dashboard.render.com/) -> buka service `absence-backend`.
-2. Masuk ke tab **Environment**.
-3. Edit variabel `FRONTEND_URL` menjadi domain Vercel Anda, contoh:
+1. Buka kembali dashboard [Render](https://dashboard.render.com) -> pilih service `absence-backend`.
+2. Masuk ke menu **Environment**.
+3. Ubah nilai variabel `FRONTEND_URL` menjadi URL Vercel Anda, contoh:
    ```
    FRONTEND_URL=https://absence-frontend-xxxx.vercel.app
    ```
-4. Tambahkan/update variabel `APP_URL` dengan domain Render Anda, contoh:
+4. Tambahkan atau update `APP_URL`:
    ```
    APP_URL=https://absence-backend-xxxx.onrender.com
    ```
-5. Klik **"Save Changes"**. Render akan otomatis me-restart service dengan pengaturan CORS terbaru.
+5. Klik **"Save Changes"**. Render akan otomatis merestart service dalam beberapa detik.
 
 ---
 
-## 6. Alur Continuous Deployment (Push to Deploy)
+## 7. Kredensial Login Admin & Uji Coba
 
-Setelah setup awal selesai, alur rilis update fitur ke production sangat mudah:
+- **Akses Dashboard Admin:** Buka web Vercel Anda, klik tombol **"Login Admin"** di pojok kanan atas.
+- **Username:** `admin`
+- **Password:** `admin123`
 
-```bash
-# 1. Edit kode di lokal (frontend maupun backend)
-# 2. Tambahkan perubahan ke git
-git add .
-
-# 3. Buat commit
-git commit -m "update: perbaikan UI atau penambahan fitur"
-
-# 4. Push ke GitHub
-git push origin main
-```
-
-**Yang terjadi secara otomatis:**
-* **Vercel** mendeteksi perubahan pada folder `absence-frontend/`, menjalankan build Vite, dan meng-update website dalam ~30 detik tanpa downtime.
-* **Render** mendeteksi perubahan pada folder `absence-backend/`, mem-build image Docker baru, menjalankan migrasi database baru jika ada, dan mengganti container lama secara otomatis (*zero-downtime rolling update*).
+### Checklist Pengujian:
+- [ ] Dropdown asal sekolah muncul otomatis saat membuka halaman pendaftaran (diambil langsung dari database Neon).
+- [ ] Formulir pendaftaran berhasil menerbitkan tiket digital dengan kode kupon `ABSC-XXXX`.
+- [ ] Login admin berhasil dengan token Sanctum dan membuka console scanner.
+- [ ] Pemindaian kupon berhasil diverifikasi.
+- [ ] Pemindaian ulang kupon yang sama menampilkan peringatan anti-double scan *"Kupon sudah di-scan sebelumnya"*.
 
 ---
 
-## 7. Kredensial Default & Checklist Pengujian
-
-### Kredensial Admin Loket:
-* **Tombol Akses:** Klik **"Login Admin"** di pojok kanan atas website Vercel Anda.
-* **Username:** `admin`
-* **Password:** `admin123`
-
-> [!TIP]
-> **Catatan Cold Start Render Free Tier:**
-> Layanan Web Service gratis di Render akan memasuki mode *sleep* jika tidak menerima traffic selama 15 menit. Request pertama setelah masa tidur memerlukan waktu ~30-50 detik untuk bangun kembali (*spin-up*). Setelah aktif, request berikutnya akan berjalan normal dan cepat.
-
-### Checklist Pengujian Setelah Deploy:
-- [ ] **Dropdown Sekolah Publik:** Buka halaman registrasi, pastikan dropdown sekolah berhasil memuat daftar sekolah dari database PostgreSQL Render.
-- [ ] **Pendaftaran Peserta:** Lakukan pendaftaran peserta baru, pastikan tiket digital muncul dengan kode kupon sequential (contoh: `ABSC-0001`) dan barcode/QR Code.
-- [ ] **Login Admin:** Masuk dengan username `admin` dan password `admin123`. Pastikan token Sanctum tersimpan dan dashboard terbuka.
-- [ ] **Pemindaian Kupon (Scanner):** Masukkan kode kupon yang baru dibuat. Pastikan status menjadi valid (hijau).
-- [ ] **Uji Anti-Double Scan:** Masukkan kembali kode kupon yang sama. Pastikan sistem menolak dengan pesan peringatan merah *"Kupon sudah di-scan sebelumnya"*.
-- [ ] **Pendaftaran Walk-in:** Klik tombol *"+ Tambah Walk-in"* di dashboard admin dan pastikan peserta baru langsung tercatat di database.
-
----
-
-## 8. Panduan Troubleshooting
-
-| Gejala Kendala | Penyebab Umum | Solusi |
-|---|---|---|
-| Dropdown sekolah kosong / Fetch Failed | `VITE_API_BASE_URL` salah atau backend Render sedang *sleeping* | Periksa nilai `VITE_API_BASE_URL` di Vercel (harus berakhiran `/api`). Buka URL backend Render langsung di browser untuk memastikan container sudah aktif (*Live*). |
-| Error `CORS Header Missing` di konsol browser | Nilai `FRONTEND_URL` di Render belum mencakup domain Vercel Anda | Masuk ke Environment Variables di Render, isi `FRONTEND_URL` dengan domain Vercel Anda (atau sementara isi `*` untuk mengizinkan semua origin). |
-| Render Build Failed pada Docker | Dockerfile tidak ditemukan karena Root Directory salah | Pastikan pada pengaturan Service Render, kolom **Root Directory** diisi dengan `absence-backend`. |
-| Database Connection Refused di Render | `DATABASE_URL` menggunakan External URL atau salah format | Pastikan menggunakan **Internal Database URL** yang disediakan Render Postgres agar koneksi berjalan cepat dan aman di dalam jaringan internal Render. |
-| Halaman 404 saat refresh URL di Vercel | Konfigurasi SPA rewrite belum terpasang | Pastikan file [`absence-frontend/vercel.json`](file:///home/ark/absence/absence-frontend/vercel.json) ada di repositori GitHub Anda. |
+## Keuntungan Menggunakan Setup Ini:
+1. **0 Rupiah & Tanpa Kartu Kredit:** Baik Neon, Render Web Service, maupun Vercel tidak meminta kartu kredit.
+2. **Database Permanen:** Neon PostgreSQL tidak memiliki batas kedaluwarsa 30 hari seperti Render Postgres.
+3. **CI/CD Otomatis:** Setiap kali Anda melakukan `git push origin main`, Vercel dan Render akan langsung memperbarui website Anda secara otomatis.
