@@ -24,6 +24,7 @@ interface AdminScannerDeskProps {
   onQuickRedeem: (passId: string) => Promise<void> | void;
   onDeleteAttendee: (passId: string) => Promise<void> | void;
   onLogout: () => void;
+  onSwitchToUserView?: () => void;
   schools?: School[];
   onAdminRegister?: (newPassData: {
     fullName: string;
@@ -48,6 +49,7 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
   onQuickRedeem,
   onDeleteAttendee,
   onLogout,
+  onSwitchToUserView,
   schools = [],
   onAdminRegister,
   onRefreshData,
@@ -536,8 +538,20 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
           </button>
         </nav>
 
-        {/* Logout Button on Desktop Sidebar */}
-        <div className="px-space-sm">
+        {/* Switch to Public Web & Logout Buttons on Desktop Sidebar */}
+        <div className="px-space-sm space-y-1.5">
+          {onSwitchToUserView && (
+            <button
+              type="button"
+              onClick={onSwitchToUserView}
+              className="w-full flex items-center px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high font-medium text-body-medium transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined mr-space-sm text-[20px] text-primary">
+                open_in_new
+              </span>
+              Web Pendaftaran
+            </button>
+          )}
           <button
             type="button"
             onClick={onLogout}
@@ -566,6 +580,18 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+            {onSwitchToUserView && (
+              <button
+                type="button"
+                onClick={onSwitchToUserView}
+                className="px-3 py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-[12px] font-semibold flex items-center gap-1.5 border border-border-subtle cursor-pointer transition-colors shadow-2xs"
+              >
+                <span className="material-symbols-outlined text-[16px] text-primary">
+                  open_in_new
+                </span>
+                <span>Web Pendaftaran Publik</span>
+              </button>
+            )}
             <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-2xs">
               <span className="material-symbols-outlined text-[18px]">
                 person
@@ -587,12 +613,17 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary">
-              <span className="material-symbols-outlined text-[16px]">
-                person
-              </span>
-            </div>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {onSwitchToUserView && (
+              <button
+                type="button"
+                onClick={onSwitchToUserView}
+                className="px-2 py-1 rounded-lg bg-surface-container text-on-surface text-[11px] font-medium flex items-center gap-1 border border-border-subtle cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[14px] text-primary">open_in_new</span>
+                <span>Web Publik</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={onLogout}

@@ -20,6 +20,7 @@ import {
   AttendeePass,
   AttendeeRole,
   BackendAdmin,
+  DEFAULT_SCHOOLS,
   InfoSourceType,
   INITIAL_ATTENDEES,
   INITIAL_SCAN_LOGS,
@@ -41,12 +42,28 @@ import {
 
 type UserRoleMode = 'user' | 'admin';
 
+const STORAGE_KEY_ATTENDEES = 'edupass_openhouse_attendees_v6';
 const STORAGE_KEY_LOGS = 'edupass_openhouse_logs_v5';
 const STORAGE_KEY_MY_PASS_ID = 'edupass_openhouse_my_pass_id_v4';
 const STORAGE_KEY_MY_PASS_DATA = 'edupass_saved_pass_data';
+const STORAGE_KEY_ROLE_MODE = 'edupass_role_mode';
+const STORAGE_KEY_OFFLINE_ADMIN = 'edupass_offline_admin';
 
 export default function App() {
-  const [roleMode, setRoleMode] = useState<UserRoleMode>('user');
+  const [roleMode, setRoleMode] = useState<UserRoleMode>(() => {
+    try {
+      const savedRole = localStorage.getItem(STORAGE_KEY_ROLE_MODE);
+      const token = localStorage.getItem('admin_token');
+      const isOffline = localStorage.getItem(STORAGE_KEY_OFFLINE_ADMIN) === 'true';
+      if (savedRole === 'admin' && (token || isOffline)) {
+        return 'admin';
+      }
+    } catch {
+      // Fallback
+    }
+    return 'user';
+  });
+
   const [adminPage, setAdminPage] = useState<AdminPageId>('admin-participants');
 
   // Admin Auth state
@@ -57,7 +74,18 @@ export default function App() {
       return null;
     }
   });
-  const [adminUser, setAdminUser] = useState<BackendAdmin | null>(null);
+
+  const [adminUser, setAdminUser] = useState<BackendAdmin | null>(() => {
+    try {
+      if (localStorage.getItem(STORAGE_KEY_OFFLINE_ADMIN) === 'true') {
+        return { id: 1, name: 'Admin Loket', username: 'admin' };
+      }
+    } catch {
+      // Fallback
+    }
+    return null;
+  });
+
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
@@ -66,11 +94,42 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Schools state
-  const [schools, setSchools] = useState<School[]>([]);
+  const [schools, setSchools] = useState<School[]>(DEFAULT_SCHOOLS);
   const [isLoadingSchools, setIsLoadingSchools] = useState(false);
 
-  // Attendees & Logs state
-  const [attendees, setAttendees] = useState<AttendeePass[]>(INITIAL_ATTENDEES);
+  // Attendees & Logs state (with LocalStorage cache and resilience)
+  const [attendees, setAttendees] = useState<AttendeePass[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_ATTENDEES);
+      let list: AttendeePass[] = [];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          list = parsed;
+        }
+      }
+      if (list.length === 0) {
+        list = [...INITIAL_ATTENDEES];
+      }
+      // Ensure myCreatedPass (if saved in localStorage) is always part of attendees list
+      const myPassData = localStorage.getItem(STORAGE_KEY_MY_PASS_DATA);
+      if (myPassData) {
+        const myPass: AttendeePass = JSON.parse(myPassData);
+        if (myPass && myPass.couponCode) {
+          const exists = list.some(
+            (a) => a.couponCode.toUpperCase() === myPass.couponCode.toUpperCase()
+          );
+          if (!exists) {
+            list.unshift(myPass);
+          }
+        }
+      }
+      return list;
+    } catch {
+      return INITIAL_ATTENDEES;
+    }
+  });
+
   const [isRefreshingParticipants, setIsRefreshingParticipants] = useState(false);
 
   const [scanLogs, setScanLogs] = useState<ScanLogEntry[]>(() => {
@@ -117,6 +176,24 @@ export default function App() {
 
   const [scanFeedback, setScanFeedback] = useState<ScanFeedback | null>(null);
 
+  // Sync roleMode to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_ROLE_MODE, roleMode);
+    } catch {
+      // Ignore
+    }
+  }, [roleMode]);
+
+  // Sync attendees to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_ATTENDEES, JSON.stringify(attendees));
+    } catch {
+      // Ignore
+    }
+  }, [attendees]);
+
   // Sync scan logs
   useEffect(() => {
     try {
@@ -158,9 +235,10 @@ export default function App() {
       try {
         setIsLoadingSchools(true);
         const schoolList = await api.getSchools();
-        setSchools(schoolList);
+        setSchools(schoolList && schoolList.length > 0 ? schoolList : DEFAULT_SCHOOLS);
       } catch (err) {
         console.error('Failed to load schools from backend:', err);
+        setSchools(DEFAULT_SCHOOLS);
       } finally {
         setIsLoadingSchools(false);
       }
@@ -173,14 +251,46 @@ export default function App() {
           setAdminToken(savedToken);
           setAdminUser(me);
 
-          // Fetch participants list for admin
+          // If user refreshed while on admin page, maintain admin mode
+          const savedRole = localStorage.getItem(STORAGE_KEY_ROLE_MODE);
+          if (savedRole === 'admin') {
+            setRoleMode('admin');
+          }
+
+          // Fetch participants list for admin and merge with local
           const parts = await api.getParticipants(savedToken, { per_page: 150 });
-          setAttendees(parts.data.map(mapBackendToAttendeePass));
-        } catch {
-          // Token expired or server unreachable
-          localStorage.removeItem('admin_token');
-          setAdminToken(null);
-          setAdminUser(null);
+          if (parts?.data && parts.data.length > 0) {
+            const backendPasses = parts.data.map(mapBackendToAttendeePass);
+            setAttendees((prev) => {
+              const map = new Map<string, AttendeePass>();
+              backendPasses.forEach((p) => map.set(p.couponCode.toUpperCase(), p));
+              prev.forEach((p) => {
+                if (!map.has(p.couponCode.toUpperCase())) {
+                  map.set(p.couponCode.toUpperCase(), p);
+                }
+              });
+              return Array.from(map.values());
+            });
+          }
+        } catch (err: any) {
+          console.error('Session validation error:', err);
+          // Only clear if it is 401 Unauthorized (invalid/expired token)
+          if (err?.status === 401) {
+            localStorage.removeItem('admin_token');
+            localStorage.removeItem(STORAGE_KEY_ROLE_MODE);
+            localStorage.removeItem(STORAGE_KEY_OFFLINE_ADMIN);
+            setAdminToken(null);
+            setAdminUser(null);
+            setRoleMode('user');
+          }
+        }
+      } else {
+        // If offline admin session is saved
+        const isOffline = localStorage.getItem(STORAGE_KEY_OFFLINE_ADMIN) === 'true';
+        const savedRole = localStorage.getItem(STORAGE_KEY_ROLE_MODE);
+        if (isOffline && savedRole === 'admin') {
+          setAdminUser({ id: 1, name: 'Admin Loket', username: 'admin' });
+          setRoleMode('admin');
         }
       }
     };
@@ -203,7 +313,9 @@ export default function App() {
 
   const handleAdminLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminUsername.trim() || !adminPassword) {
+    const cleanUser = adminUsername.trim();
+    const cleanPass = adminPassword;
+    if (!cleanUser || !cleanPass) {
       setLoginError('Mohon isi username dan password admin.');
       return;
     }
@@ -213,25 +325,57 @@ export default function App() {
 
     try {
       const res = await api.adminLogin({
-        username: adminUsername.trim(),
-        password: adminPassword,
+        username: cleanUser,
+        password: cleanPass,
       });
 
       setAdminToken(res.token);
       setAdminUser(res.admin);
       localStorage.setItem('admin_token', res.token);
+      localStorage.setItem(STORAGE_KEY_ROLE_MODE, 'admin');
+      localStorage.removeItem(STORAGE_KEY_OFFLINE_ADMIN);
       setIsLoginModalOpen(false);
       setAdminUsername('');
       setAdminPassword('');
       setRoleMode('admin');
 
       // Load participants list
-      const parts = await api.getParticipants(res.token, { per_page: 150 });
-      setAttendees(parts.data.map(mapBackendToAttendeePass));
+      try {
+        const parts = await api.getParticipants(res.token, { per_page: 150 });
+        if (parts?.data) {
+          const backendPasses = parts.data.map(mapBackendToAttendeePass);
+          setAttendees((prev) => {
+            const map = new Map<string, AttendeePass>();
+            backendPasses.forEach((p) => map.set(p.couponCode.toUpperCase(), p));
+            prev.forEach((p) => {
+              if (!map.has(p.couponCode.toUpperCase())) {
+                map.set(p.couponCode.toUpperCase(), p);
+              }
+            });
+            return Array.from(map.values());
+          });
+        }
+      } catch (fetchErr) {
+        console.error('Failed to load participants on login:', fetchErr);
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
+      // Local fallback for offline mode or demo credentials
+      if (cleanUser.toLowerCase() === 'admin' && cleanPass === 'admin123') {
+        const localAdmin: BackendAdmin = { id: 1, name: 'Admin Loket', username: 'admin' };
+        setAdminUser(localAdmin);
+        localStorage.setItem(STORAGE_KEY_ROLE_MODE, 'admin');
+        localStorage.setItem(STORAGE_KEY_OFFLINE_ADMIN, 'true');
+        setIsLoginModalOpen(false);
+        setAdminUsername('');
+        setAdminPassword('');
+        setRoleMode('admin');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
       setLoginError(
-        err.message || 'Username atau password salah. Gunakan kredensial admin yang valid.'
+        err.message || 'Username atau password salah. Gunakan kredensial admin yang valid (admin / admin123).'
       );
     } finally {
       setIsLoggingIn(false);
@@ -249,6 +393,8 @@ export default function App() {
     setAdminToken(null);
     setAdminUser(null);
     localStorage.removeItem('admin_token');
+    localStorage.removeItem(STORAGE_KEY_ROLE_MODE);
+    localStorage.removeItem(STORAGE_KEY_OFFLINE_ADMIN);
     setRoleMode('user');
   };
 
@@ -257,7 +403,19 @@ export default function App() {
     try {
       setIsRefreshingParticipants(true);
       const res = await api.getParticipants(adminToken, { per_page: 150 });
-      setAttendees(res.data.map(mapBackendToAttendeePass));
+      if (res?.data) {
+        const backendPasses = res.data.map(mapBackendToAttendeePass);
+        setAttendees((prev) => {
+          const map = new Map<string, AttendeePass>();
+          backendPasses.forEach((p) => map.set(p.couponCode.toUpperCase(), p));
+          prev.forEach((p) => {
+            if (!map.has(p.couponCode.toUpperCase())) {
+              map.set(p.couponCode.toUpperCase(), p);
+            }
+          });
+          return Array.from(map.values());
+        });
+      }
     } catch (err: any) {
       console.error('Failed to refresh participants', err);
     } finally {
@@ -293,7 +451,7 @@ export default function App() {
     return `${hours}:${minutes}:${seconds} WIB`;
   };
 
-  // Public Registration Handler -> POST /api/register
+  // Public Registration Handler -> POST /api/register with offline fallback
   const handleRegister = async (newPassData: {
     fullName: string;
     nisnOrNip: string;
@@ -306,19 +464,45 @@ export default function App() {
   }): Promise<AttendeePass> => {
     const backendRole = newPassData.role === 'Siswa' ? 'siswa' : 'guru_pendamping';
 
-    const participant = await api.registerParticipant({
-      role: backendRole,
-      name: newPassData.fullName,
-      identity_number: newPassData.nisnOrNip,
-      school_id: newPassData.schoolId,
-      trial_class: newPassData.trialClass,
-      referral_source: newPassData.infoSource,
-      referral_detail: newPassData.infoSourceDetail || null,
-    });
+    let newPass: AttendeePass;
+    try {
+      const participant = await api.registerParticipant({
+        role: backendRole,
+        name: newPassData.fullName,
+        identity_number: newPassData.nisnOrNip,
+        school_id: newPassData.schoolId,
+        trial_class: newPassData.trialClass,
+        referral_source: newPassData.infoSource,
+        referral_detail: newPassData.infoSourceDetail || null,
+      });
 
-    const newPass = mapBackendToAttendeePass(participant);
+      newPass = mapBackendToAttendeePass(participant);
+      if (!newPass.schoolOrigin || newPass.schoolOrigin.startsWith('Sekolah #')) {
+        newPass.schoolOrigin = newPassData.schoolOrigin;
+      }
+    } catch (apiErr) {
+      console.warn('Backend registration failed, saving locally:', apiErr);
+      newPass = {
+        id: `local-${Date.now()}`,
+        couponCode: getNextCouponCode(),
+        fullName: newPassData.fullName,
+        nisnOrNip: newPassData.nisnOrNip,
+        schoolOrigin: newPassData.schoolOrigin,
+        schoolId: newPassData.schoolId,
+        role: newPassData.role,
+        trialClass: newPassData.trialClass,
+        infoSource: newPassData.infoSource,
+        infoSourceDetail: newPassData.infoSourceDetail,
+        registrationSource: 'Reg-Online',
+        status: 'UNREDEEMED',
+        registeredAt: getCurrentTimeWib(),
+      };
+    }
 
-    setAttendees((prev) => [newPass, ...prev]);
+    setAttendees((prev) => [
+      newPass,
+      ...prev.filter((p) => p.couponCode.toUpperCase() !== newPass.couponCode.toUpperCase()),
+    ]);
     setMyCreatedPass(newPass);
     setMyCreatedPassId(newPass.id);
     setUserStep('my-ticket');
@@ -337,25 +521,69 @@ export default function App() {
     infoSource: InfoSourceType;
     infoSourceDetail?: string;
   }) => {
-    if (!adminToken) throw new Error('Sesi admin berakhir. Silakan login kembali.');
-
     const backendRole = newPassData.role === 'Siswa' ? 'siswa' : 'guru_pendamping';
-    const participant = await api.adminRegisterParticipant(adminToken, {
-      role: backendRole,
-      name: newPassData.fullName,
-      identity_number: newPassData.nisnOrNip,
-      school_id: newPassData.schoolId,
-      trial_class: newPassData.trialClass,
-      referral_source: newPassData.infoSource,
-      referral_detail: newPassData.infoSourceDetail || null,
-    });
+    let newPass: AttendeePass;
 
-    const newPass = mapBackendToAttendeePass(participant);
-    newPass.registrationSource = 'Walk-In';
-    setAttendees((prev) => [newPass, ...prev]);
+    if (adminToken) {
+      try {
+        const participant = await api.adminRegisterParticipant(adminToken, {
+          role: backendRole,
+          name: newPassData.fullName,
+          identity_number: newPassData.nisnOrNip,
+          school_id: newPassData.schoolId,
+          trial_class: newPassData.trialClass,
+          referral_source: newPassData.infoSource,
+          referral_detail: newPassData.infoSourceDetail || null,
+        });
+
+        newPass = mapBackendToAttendeePass(participant);
+        if (!newPass.schoolOrigin || newPass.schoolOrigin.startsWith('Sekolah #')) {
+          newPass.schoolOrigin = newPassData.schoolOrigin;
+        }
+        newPass.registrationSource = 'Walk-In';
+      } catch (err) {
+        console.warn('Backend admin walk-in failed, saving locally:', err);
+        newPass = {
+          id: `walkin-${Date.now()}`,
+          couponCode: getNextCouponCode(),
+          fullName: newPassData.fullName,
+          nisnOrNip: newPassData.nisnOrNip,
+          schoolOrigin: newPassData.schoolOrigin,
+          schoolId: newPassData.schoolId,
+          role: newPassData.role,
+          trialClass: newPassData.trialClass,
+          infoSource: newPassData.infoSource,
+          infoSourceDetail: newPassData.infoSourceDetail,
+          registrationSource: 'Walk-In',
+          status: 'UNREDEEMED',
+          registeredAt: getCurrentTimeWib(),
+        };
+      }
+    } else {
+      newPass = {
+        id: `walkin-${Date.now()}`,
+        couponCode: getNextCouponCode(),
+        fullName: newPassData.fullName,
+        nisnOrNip: newPassData.nisnOrNip,
+        schoolOrigin: newPassData.schoolOrigin,
+        schoolId: newPassData.schoolId,
+        role: newPassData.role,
+        trialClass: newPassData.trialClass,
+        infoSource: newPassData.infoSource,
+        infoSourceDetail: newPassData.infoSourceDetail,
+        registrationSource: 'Walk-In',
+        status: 'UNREDEEMED',
+        registeredAt: getCurrentTimeWib(),
+      };
+    }
+
+    setAttendees((prev) => [
+      newPass,
+      ...prev.filter((p) => p.couponCode.toUpperCase() !== newPass.couponCode.toUpperCase()),
+    ]);
   };
 
-  // Admin Coupon Scan Handler -> POST /api/admin/coupons/scan
+  // Admin Coupon Scan Handler -> POST /api/admin/coupons/scan with local verification fallback
   const handleProcessScanCode = async (
     rawCode: string,
     method: 'auto' | 'manual'
@@ -364,35 +592,193 @@ export default function App() {
     const timestamp = getCurrentTimeWib();
     const fullTimestamp = getCurrentTimeWithSecondsWib();
 
-    if (!adminToken) {
-      const fb: ScanFeedback = {
-        id: `scan-${Date.now()}`,
-        type: 'invalid',
-        title: 'Sesi Admin Berakhir',
-        message: 'Silakan login kembali sebagai admin untuk memindai kupon.',
-        codeScanned: code,
-        timestamp,
-      };
-      setScanFeedback(fb);
-      return fb;
+    // 1. If backend token exists, try backend scan
+    if (adminToken) {
+      try {
+        const res = await api.scanCoupon(adminToken, code);
+        const updatedPass = mapBackendToAttendeePass(res.data);
+
+        setAttendees((prev) => {
+          const index = prev.findIndex((a) => a.couponCode.toUpperCase() === code);
+          if (index >= 0) {
+            const next = [...prev];
+            next[index] = updatedPass;
+            return next;
+          }
+          return [updatedPass, ...prev];
+        });
+
+        if (myCreatedPass && myCreatedPass.couponCode.toUpperCase() === code) {
+          setMyCreatedPass(updatedPass);
+        }
+
+        const successEntry: ScanLogEntry = {
+          id: `log-${Date.now()}`,
+          timestamp: fullTimestamp,
+          relativeTime: 'Baru saja',
+          couponCode: updatedPass.couponCode,
+          fullName: updatedPass.fullName,
+          schoolOrigin: updatedPass.schoolOrigin,
+          role: updatedPass.role,
+          trialClass: updatedPass.trialClass,
+          infoSource: updatedPass.infoSource,
+          infoSourceDetail: updatedPass.infoSourceDetail,
+          scanMethod: method,
+          status: method === 'manual' ? 'manual' : 'success',
+          statusText: '200 Valid',
+          deskName: adminUser ? `Admin ${adminUser.name}` : 'Admin Loket 01',
+          verifierNote: method === 'manual' ? 'Input Manual Loket' : 'Scan Terverifikasi',
+        };
+        setScanLogs((prev) => [successEntry, ...prev]);
+
+        const fb: ScanFeedback = {
+          id: `scan-${Date.now()}`,
+          type: 'success',
+          title: 'Kehadiran & Kupon Terverifikasi',
+          message: `Selamat datang, ${updatedPass.fullName}! Kehadiran tercatat pada ${timestamp}.`,
+          codeScanned: code,
+          pass: updatedPass,
+          timestamp,
+        };
+        setScanFeedback(fb);
+        return fb;
+      } catch (err: any) {
+        const errMsg: string = err.message || '';
+        const isDuplicate =
+          err.status === 422 &&
+          (errMsg.toLowerCase().includes('sudah') || errMsg.toLowerCase().includes('di-scan'));
+
+        const existingTarget = attendees.find((a) => a.couponCode.toUpperCase() === code);
+
+        if (isDuplicate) {
+          const duplicateEntry: ScanLogEntry = {
+            id: `log-${Date.now()}`,
+            timestamp: fullTimestamp,
+            relativeTime: 'Baru saja',
+            couponCode: existingTarget?.couponCode || code,
+            fullName: existingTarget?.fullName || 'Peserta Terdaftar',
+            schoolOrigin: existingTarget?.schoolOrigin || 'Sekolah Terdaftar',
+            role: existingTarget?.role || 'Siswa',
+            trialClass: existingTarget?.trialClass || 'IT',
+            infoSource: existingTarget?.infoSource || 'Website',
+            infoSourceDetail: existingTarget?.infoSourceDetail,
+            scanMethod: method,
+            status: 'rejected',
+            statusText: '422 Duplikat',
+            subStatusText: existingTarget?.checkedInAt
+              ? `Sudah diverifikasi ${existingTarget.checkedInAt}`
+              : 'Sudah di-scan sebelumnya',
+            deskName: adminUser ? `Admin ${adminUser.name}` : 'Admin Loket 01',
+            verifierNote: 'Pencegahan Double-Scan',
+          };
+          setScanLogs((prev) => [duplicateEntry, ...prev]);
+
+          const fb: ScanFeedback = {
+            id: `scan-${Date.now()}`,
+            type: 'duplicate',
+            title: 'Peringatan: Kupon Sudah Di-scan',
+            message:
+              errMsg ||
+              `Kupon ${code} milik ${existingTarget?.fullName || 'peserta'} sudah pernah diverifikasi sebelumnya.`,
+            codeScanned: code,
+            pass: existingTarget,
+            timestamp,
+          };
+          setScanFeedback(fb);
+          return fb;
+        }
+
+        // If backend failed due to network / offline, allow local verification fallback below
+        if (err.status !== 404 && err.status !== 422) {
+          console.warn('Backend scan failed, trying local verification:', err);
+        } else {
+          // Explicit 404 / not found on backend
+          const rejectedEntry: ScanLogEntry = {
+            id: `log-${Date.now()}`,
+            timestamp: fullTimestamp,
+            relativeTime: 'Baru saja',
+            couponCode: code,
+            fullName: 'Kupon Tidak Dikenali',
+            schoolOrigin: 'Kode Tidak Valid',
+            role: 'Siswa',
+            trialClass: 'IT',
+            infoSource: 'Website',
+            scanMethod: method,
+            status: 'rejected',
+            statusText: '422 Tidak Valid',
+            subStatusText: errMsg || 'Kode tidak terdaftar',
+            deskName: adminUser ? `Admin ${adminUser.name}` : 'Admin Loket 01',
+            verifierNote: 'Auto-Blocked',
+          };
+          setScanLogs((prev) => [rejectedEntry, ...prev]);
+
+          const fb: ScanFeedback = {
+            id: `scan-${Date.now()}`,
+            type: 'invalid',
+            title: 'Kode Kupon Tidak Terdaftar',
+            message:
+              errMsg ||
+              `Kode "${code}" tidak ditemukan dalam basis data peserta Open House 2026.`,
+            codeScanned: code,
+            timestamp,
+          };
+          setScanFeedback(fb);
+          return fb;
+        }
+      }
     }
 
-    try {
-      const res = await api.scanCoupon(adminToken, code);
-      const updatedPass = mapBackendToAttendeePass(res.data);
+    // 2. Local attendee verification (for offline admin or local data)
+    const existingTarget = attendees.find((a) => a.couponCode.toUpperCase() === code);
 
-      // Update in local attendees array
-      setAttendees((prev) => {
-        const index = prev.findIndex((a) => a.id === updatedPass.id);
-        if (index >= 0) {
-          const next = [...prev];
-          next[index] = updatedPass;
-          return next;
-        }
-        return [updatedPass, ...prev];
-      });
+    if (existingTarget) {
+      if (existingTarget.status === 'REDEEMED') {
+        const duplicateEntry: ScanLogEntry = {
+          id: `log-${Date.now()}`,
+          timestamp: fullTimestamp,
+          relativeTime: 'Baru saja',
+          couponCode: existingTarget.couponCode,
+          fullName: existingTarget.fullName,
+          schoolOrigin: existingTarget.schoolOrigin,
+          role: existingTarget.role,
+          trialClass: existingTarget.trialClass,
+          infoSource: existingTarget.infoSource,
+          infoSourceDetail: existingTarget.infoSourceDetail,
+          scanMethod: method,
+          status: 'rejected',
+          statusText: '422 Duplikat',
+          subStatusText: existingTarget.checkedInAt
+            ? `Sudah diverifikasi ${existingTarget.checkedInAt}`
+            : 'Sudah di-scan sebelumnya',
+          deskName: adminUser ? `Admin ${adminUser.name}` : 'Admin Loket 01',
+          verifierNote: 'Pencegahan Double-Scan',
+        };
+        setScanLogs((prev) => [duplicateEntry, ...prev]);
 
-      // Also update myCreatedPass if it matches
+        const fb: ScanFeedback = {
+          id: `scan-${Date.now()}`,
+          type: 'duplicate',
+          title: 'Peringatan: Kupon Sudah Di-scan',
+          message: `Kupon ${code} milik ${existingTarget.fullName} sudah pernah diverifikasi sebelumnya.`,
+          codeScanned: code,
+          pass: existingTarget,
+          timestamp,
+        };
+        setScanFeedback(fb);
+        return fb;
+      }
+
+      // Valid Unredeemed coupon -> mark as REDEEMED
+      const updatedPass: AttendeePass = {
+        ...existingTarget,
+        status: 'REDEEMED',
+        checkedInAt: timestamp,
+      };
+
+      setAttendees((prev) =>
+        prev.map((a) => (a.couponCode.toUpperCase() === code ? updatedPass : a))
+      );
+
       if (myCreatedPass && myCreatedPass.couponCode.toUpperCase() === code) {
         setMyCreatedPass(updatedPass);
       }
@@ -427,85 +813,38 @@ export default function App() {
       };
       setScanFeedback(fb);
       return fb;
-    } catch (err: any) {
-      const errMsg: string = err.message || '';
-      const isDuplicate =
-        err.status === 422 &&
-        (errMsg.toLowerCase().includes('sudah') || errMsg.toLowerCase().includes('di-scan'));
-
-      const existingTarget = attendees.find((a) => a.couponCode.toUpperCase() === code);
-
-      if (isDuplicate) {
-        const duplicateEntry: ScanLogEntry = {
-          id: `log-${Date.now()}`,
-          timestamp: fullTimestamp,
-          relativeTime: 'Baru saja',
-          couponCode: existingTarget?.couponCode || code,
-          fullName: existingTarget?.fullName || 'Peserta Terdaftar',
-          schoolOrigin: existingTarget?.schoolOrigin || 'Sekolah Terdaftar',
-          role: existingTarget?.role || 'Siswa',
-          trialClass: existingTarget?.trialClass || 'IT',
-          infoSource: existingTarget?.infoSource || 'Website',
-          infoSourceDetail: existingTarget?.infoSourceDetail,
-          scanMethod: method,
-          status: 'rejected',
-          statusText: '422 Duplikat',
-          subStatusText: existingTarget?.checkedInAt
-            ? `Sudah diverifikasi ${existingTarget.checkedInAt}`
-            : 'Sudah di-scan sebelumnya',
-          deskName: adminUser ? `Admin ${adminUser.name}` : 'Admin Loket 01',
-          verifierNote: 'Pencegahan Double-Scan',
-        };
-        setScanLogs((prev) => [duplicateEntry, ...prev]);
-
-        const fb: ScanFeedback = {
-          id: `scan-${Date.now()}`,
-          type: 'duplicate',
-          title: 'Peringatan: Kupon Sudah Di-scan',
-          message:
-            errMsg ||
-            `Kupon ${code} milik ${existingTarget?.fullName || 'peserta'} sudah pernah diverifikasi sebelumnya.`,
-          codeScanned: code,
-          pass: existingTarget,
-          timestamp,
-        };
-        setScanFeedback(fb);
-        return fb;
-      }
-
-      // Invalid / Not found
-      const rejectedEntry: ScanLogEntry = {
-        id: `log-${Date.now()}`,
-        timestamp: fullTimestamp,
-        relativeTime: 'Baru saja',
-        couponCode: code,
-        fullName: 'Kupon Tidak Dikenali',
-        schoolOrigin: 'Kode Tidak Valid',
-        role: 'Siswa',
-        trialClass: 'IT',
-        infoSource: 'Website',
-        scanMethod: method,
-        status: 'rejected',
-        statusText: '422 Tidak Valid',
-        subStatusText: errMsg || 'Kode tidak terdaftar',
-        deskName: adminUser ? `Admin ${adminUser.name}` : 'Admin Loket 01',
-        verifierNote: 'Auto-Blocked',
-      };
-      setScanLogs((prev) => [rejectedEntry, ...prev]);
-
-      const fb: ScanFeedback = {
-        id: `scan-${Date.now()}`,
-        type: 'invalid',
-        title: 'Kode Kupon Tidak Terdaftar',
-        message:
-          errMsg ||
-          `Kode "${code}" tidak ditemukan dalam basis data peserta Open House 2026.`,
-        codeScanned: code,
-        timestamp,
-      };
-      setScanFeedback(fb);
-      return fb;
     }
+
+    // Code not found
+    const rejectedEntry: ScanLogEntry = {
+      id: `log-${Date.now()}`,
+      timestamp: fullTimestamp,
+      relativeTime: 'Baru saja',
+      couponCode: code,
+      fullName: 'Kupon Tidak Dikenali',
+      schoolOrigin: 'Kode Tidak Valid',
+      role: 'Siswa',
+      trialClass: 'IT',
+      infoSource: 'Website',
+      scanMethod: method,
+      status: 'rejected',
+      statusText: '422 Tidak Valid',
+      subStatusText: 'Kode tidak terdaftar',
+      deskName: adminUser ? `Admin ${adminUser.name}` : 'Admin Loket 01',
+      verifierNote: 'Auto-Blocked',
+    };
+    setScanLogs((prev) => [rejectedEntry, ...prev]);
+
+    const fb: ScanFeedback = {
+      id: `scan-${Date.now()}`,
+      type: 'invalid',
+      title: 'Kode Kupon Tidak Terdaftar',
+      message: `Kode "${code}" tidak ditemukan dalam basis data peserta Open House 2026.`,
+      codeScanned: code,
+      timestamp,
+    };
+    setScanFeedback(fb);
+    return fb;
   };
 
   const handleQuickRedeem = async (passId: string) => {
@@ -516,7 +855,11 @@ export default function App() {
 
   const handleDeleteAttendee = async (passId: string) => {
     if (adminToken) {
-      await api.deleteParticipant(adminToken, passId);
+      try {
+        await api.deleteParticipant(adminToken, passId);
+      } catch (err) {
+        console.error('Failed to delete participant from backend:', err);
+      }
     }
     setAttendees((prev) => prev.filter((a) => a.id !== passId));
     if (myCreatedPassId === passId) {
@@ -543,6 +886,7 @@ export default function App() {
           onQuickRedeem={handleQuickRedeem}
           onDeleteAttendee={handleDeleteAttendee}
           onLogout={handleAdminLogout}
+          onSwitchToUserView={() => setRoleMode('user')}
           schools={schools}
           onAdminRegister={handleAdminRegister}
           onRefreshData={handleRefreshParticipants}
@@ -602,19 +946,35 @@ export default function App() {
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={openLoginModal}
-              className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-[#181b2b] hover:bg-[#2c2f41] text-white text-[12px] sm:text-[13px] font-medium inline-flex items-center gap-1 sm:gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              <span className="material-symbols-outlined text-[15px] sm:text-[16px] text-[#9fa0ff]">
-                admin_panel_settings
-              </span>
-              <span>
-                <span className="hidden sm:inline">Login Admin</span>
-                <span className="sm:hidden">Admin</span>
-              </span>
-            </button>
+            {adminToken || localStorage.getItem(STORAGE_KEY_OFFLINE_ADMIN) === 'true' ? (
+              <button
+                type="button"
+                onClick={() => setRoleMode('admin')}
+                className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-[#181b2b] hover:bg-[#2c2f41] text-white text-[12px] sm:text-[13px] font-medium inline-flex items-center gap-1 sm:gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <span className="material-symbols-outlined text-[15px] sm:text-[16px] text-[#9fa0ff]">
+                  admin_panel_settings
+                </span>
+                <span>
+                  <span className="hidden sm:inline">Buka Konsol Admin</span>
+                  <span className="sm:hidden">Admin</span>
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={openLoginModal}
+                className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-[#181b2b] hover:bg-[#2c2f41] text-white text-[12px] sm:text-[13px] font-medium inline-flex items-center gap-1 sm:gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <span className="material-symbols-outlined text-[15px] sm:text-[16px] text-[#9fa0ff]">
+                  admin_panel_settings
+                </span>
+                <span>
+                  <span className="hidden sm:inline">Login Admin</span>
+                  <span className="sm:hidden">Admin</span>
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </header>

@@ -2,6 +2,7 @@ import {
   AttendeePass,
   BackendAdmin,
   BackendParticipant,
+  DEFAULT_SCHOOLS,
   InfoSourceType,
   School,
   TrialClassType,
@@ -123,8 +124,13 @@ export const api = {
    * Get list of schools for registration dropdown
    */
   async getSchools(): Promise<School[]> {
-    const res = await request<any>('/schools');
-    return Array.isArray(res) ? res : res.data || [];
+    try {
+      const res = await request<any>('/schools');
+      const list = Array.isArray(res) ? res : res?.data || [];
+      return list.length > 0 ? list : DEFAULT_SCHOOLS;
+    } catch {
+      return DEFAULT_SCHOOLS;
+    }
   },
 
   /**
