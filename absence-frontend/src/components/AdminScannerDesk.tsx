@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   AttendeePass,
   AttendeeRole,
-  EDUPASS_LOGO_URL,
   INFO_SOURCE_OPTIONS,
   InfoSourceType,
   PassStatus,
@@ -12,6 +11,7 @@ import {
   TRIAL_CLASS_OPTIONS,
   TrialClassType
 } from '../types';
+import { decodeBarcodeFromCanvas, playScanSound } from '../utils/barcode';
 
 export type AdminPageId = 'admin-scanner' | 'activity-history' | 'admin-participants';
 
@@ -71,8 +71,12 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
   const [flashOn, setFlashOn] = useState(false);
   const [camFlipped, setCamFlipped] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
+  const [scanSuccessFlash, setScanSuccessFlash] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const lastScannedRef = useRef<{ code: string; time: number } | null>(null);
+  const isScanningFrameRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Participants page states
   const [participantSearch, setParticipantSearch] = useState('');
@@ -145,6 +149,130 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
       }
     } catch {
       showToast('Izin kamera belum diberikan. Gunakan input manual kupon.');
+    }
+  };
+
+  // Real-time camera barcode & QR code auto-scanner loop
+  useEffect(() => {
+    if (!cameraActive) return;
+
+    let isActive = true;
+    let scanTimer: any = null;
+
+    const scanFrame = async () => {
+      if (!isActive || !cameraActive || isScanningFrameRef.current) return;
+
+      const video = videoRef.current;
+      if (!video || video.readyState < 2 || video.videoWidth === 0) return;
+
+      isScanningFrameRef.current = true;
+      try {
+        const detected = await decodeBarcodeFromCanvas(video);
+        if (detected && isActive) {
+          const clean = detected.trim().toUpperCase();
+          const now = Date.now();
+          const last = lastScannedRef.current;
+
+          // Prevent rapid duplicate trigger of the same code within 3.5 seconds
+          if (!last || last.code !== clean || now - last.time > 3500) {
+            lastScannedRef.current = { code: clean, time: now };
+            playScanSound('success');
+            setScanSuccessFlash(true);
+            setTimeout(() => setScanSuccessFlash(false), 900);
+
+            await onProcessScanCode(clean, 'auto');
+          }
+        }
+      } catch {
+        // Ignore single frame decode errors
+      } finally {
+        isScanningFrameRef.current = false;
+      }
+    };
+
+    scanTimer = setInterval(scanFrame, 160);
+
+    return () => {
+      isActive = false;
+      if (scanTimer) clearInterval(scanTimer);
+    };
+  }, [cameraActive, onProcessScanCode]);
+
+  // Global hardware USB barcode gun keyboard listener
+  useEffect(() => {
+    let buffer = '';
+    let lastKeyTime = Date.now();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+
+      const now = Date.now();
+      if (now - lastKeyTime > 90) {
+        buffer = '';
+      }
+      lastKeyTime = now;
+
+      if (e.key === 'Enter') {
+        const clean = buffer.trim().toUpperCase();
+        if (clean.length >= 4 && (clean.startsWith('ABSC-') || /^ABSC\d+$/i.test(clean))) {
+          if (!isInput) {
+            e.preventDefault();
+          }
+          playScanSound('success');
+          onProcessScanCode(clean, 'auto');
+          buffer = '';
+        }
+      } else if (e.key.length === 1) {
+        buffer += e.key;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onProcessScanCode]);
+
+  const handleImageFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      showToast('Memindai file gambar barcode / QR...');
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.src = objectUrl;
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Gagal menyiapkan canvas gambar.');
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(objectUrl);
+
+      const detected = await decodeBarcodeFromCanvas(canvas);
+      if (detected) {
+        const clean = detected.trim().toUpperCase();
+        playScanSound('success');
+        showToast(`Berhasil mendeteksi kupon: ${clean}`);
+        await onProcessScanCode(clean, 'auto');
+      } else {
+        showToast('Tidak ada QR code atau barcode yang terdeteksi di gambar ini.');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Gagal memindai file gambar.');
+    } finally {
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -226,6 +354,13 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
               sports_esports
             </span>
             MOBILE LEGENDS
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container text-text-muted text-label-badge font-medium">
+            <span className="material-symbols-outlined text-[13px]">person_outline</span>
+            Guru / Tanpa Trial
           </span>
         );
     }
@@ -341,9 +476,8 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
         <div className="px-space-md mb-space-lg flex items-center gap-space-xs">
           <img
             alt="OpenHouse Pass Logo"
-            referrerPolicy="no-referrer"
             className="h-7 w-auto object-contain"
-            src={EDUPASS_LOGO_URL}
+            src="/logo.png"
           />
           <div className="flex flex-col">
             <span className="font-display text-headline-md text-primary leading-tight">
@@ -445,9 +579,8 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
           <div className="flex items-center gap-2 min-w-0">
             <img
               alt="OpenHouse Pass Logo"
-              referrerPolicy="no-referrer"
               className="h-6 w-auto object-contain shrink-0"
-              src={EDUPASS_LOGO_URL}
+              src="/logo.png"
             />
             <span className="font-display text-[15px] font-bold text-primary truncate">
               EduPass Admin
@@ -662,7 +795,7 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                         schoolId: Number(walkInSchoolId),
                         schoolOrigin: sch ? sch.name : '',
                         role: walkInRole,
-                        trialClass: walkInTrialClass,
+                        trialClass: walkInRole === 'Guru Pendamping' ? '-' : walkInTrialClass,
                         infoSource: walkInInfoSource,
                         infoSourceDetail: walkInInfoSourceDetail.trim() || undefined,
                       });
@@ -750,17 +883,24 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                   {/* Trial Class */}
                   <div>
                     <label className="block text-xs font-medium text-text-muted mb-1">Trial Class</label>
-                    <select
-                      value={walkInTrialClass}
-                      onChange={(e) => setWalkInTrialClass(e.target.value as TrialClassType)}
-                      className="w-full h-11 px-3 rounded-xl border border-border-subtle bg-surface text-on-surface text-sm focus:border-primary focus:outline-none"
-                    >
-                      {TRIAL_CLASS_OPTIONS.map((tc) => (
-                        <option key={tc.id} value={tc.id}>
-                          {tc.label} ({tc.subtitle})
-                        </option>
-                      ))}
-                    </select>
+                    {walkInRole === 'Guru Pendamping' ? (
+                      <div className="w-full h-11 px-3 rounded-xl border border-border-subtle bg-surface-container text-text-muted text-xs sm:text-sm flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[18px] text-secondary">info</span>
+                        <span>Khusus Siswa (Guru tidak memilih Trial Class)</span>
+                      </div>
+                    ) : (
+                      <select
+                        value={walkInTrialClass}
+                        onChange={(e) => setWalkInTrialClass(e.target.value as TrialClassType)}
+                        className="w-full h-11 px-3 rounded-xl border border-border-subtle bg-surface text-on-surface text-sm focus:border-primary focus:outline-none"
+                      >
+                        {TRIAL_CLASS_OPTIONS.map((tc) => (
+                          <option key={tc.id} value={tc.id}>
+                            {tc.label} ({tc.subtitle})
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
                   {/* Sumber Info */}
@@ -918,6 +1058,26 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                       </div>
 
                       <div className="flex items-center gap-1.5 sm:gap-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleImageFileScan}
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          title="Unggah foto atau screenshot tiket QR/Barcode"
+                          className="h-9 sm:h-10 px-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-[12px] sm:text-[13px] font-medium flex items-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[18px] text-primary">
+                            image
+                          </span>
+                          <span className="hidden sm:inline">Pindai Foto</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={toggleLiveCamera}
@@ -963,7 +1123,9 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                       </div>
                     </div>
 
-                    <div className="relative w-full aspect-video sm:h-[380px] lg:h-[440px] rounded-2xl overflow-hidden bg-on-surface flex items-center justify-center shadow-inner">
+                    <div className={`relative w-full aspect-video sm:h-[380px] lg:h-[440px] rounded-2xl overflow-hidden bg-on-surface flex items-center justify-center shadow-inner transition-all duration-300 ${
+                      scanSuccessFlash ? 'ring-4 ring-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.5)]' : ''
+                    }`}>
                       {cameraActive ? (
                         <video
                           ref={videoRef}
@@ -978,12 +1140,34 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                         </div>
                       )}
 
+                      {/* Success Scan Flash Overlay */}
+                      {scanSuccessFlash && (
+                        <div className="absolute inset-0 z-30 bg-emerald-500/20 backdrop-blur-[2px] flex items-center justify-center transition-all">
+                          <div className="px-5 py-3 rounded-2xl bg-emerald-600 text-white font-display font-bold text-[15px] sm:text-[16px] shadow-2xl flex items-center gap-2.5 animate-bounce">
+                            <span className="material-symbols-outlined text-[24px]">
+                              check_circle
+                            </span>
+                            <span>KUPON BERHASIL TERPINDAI!</span>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="relative z-10 w-64 h-48 sm:w-80 sm:h-56 lg:w-96 lg:h-64 flex items-center justify-center">
-                        <div className="absolute top-0 left-0 w-8 sm:w-10 h-8 sm:h-10 rounded-tl-xl border-t-4 border-l-4 border-primary-container" />
-                        <div className="absolute top-0 right-0 w-8 sm:w-10 h-8 sm:h-10 rounded-tr-xl border-t-4 border-r-4 border-primary-container" />
-                        <div className="absolute bottom-0 left-0 w-8 sm:w-10 h-8 sm:h-10 rounded-bl-xl border-b-4 border-l-4 border-primary-container" />
-                        <div className="absolute bottom-0 right-0 w-8 sm:w-10 h-8 sm:h-10 rounded-br-xl border-b-4 border-r-4 border-primary-container" />
-                        <div className="absolute inset-x-2 h-1 bg-gradient-to-r from-transparent via-primary-container to-transparent shadow-[0_0_16px_#9FA0FF] animate-pulse" />
+                        <div className={`absolute top-0 left-0 w-8 sm:w-10 h-8 sm:h-10 rounded-tl-xl border-t-4 border-l-4 transition-colors ${
+                          scanSuccessFlash ? 'border-emerald-400' : 'border-primary-container'
+                        }`} />
+                        <div className={`absolute top-0 right-0 w-8 sm:w-10 h-8 sm:h-10 rounded-tr-xl border-t-4 border-r-4 transition-colors ${
+                          scanSuccessFlash ? 'border-emerald-400' : 'border-primary-container'
+                        }`} />
+                        <div className={`absolute bottom-0 left-0 w-8 sm:w-10 h-8 sm:h-10 rounded-bl-xl border-b-4 border-l-4 transition-colors ${
+                          scanSuccessFlash ? 'border-emerald-400' : 'border-primary-container'
+                        }`} />
+                        <div className={`absolute bottom-0 right-0 w-8 sm:w-10 h-8 sm:h-10 rounded-br-xl border-b-4 border-r-4 transition-colors ${
+                          scanSuccessFlash ? 'border-emerald-400' : 'border-primary-container'
+                        }`} />
+                        <div className={`absolute inset-x-2 h-1 bg-gradient-to-r from-transparent ${
+                          scanSuccessFlash ? 'via-emerald-400' : 'via-primary-container'
+                        } to-transparent shadow-[0_0_16px_#9FA0FF] animate-pulse`} />
                         <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-primary-container/10 flex items-center justify-center">
                           <span className="material-symbols-outlined text-primary-container/70 text-[28px] sm:text-[32px]">
                             filter_center_focus
@@ -996,7 +1180,11 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                           <span className="material-symbols-outlined text-primary-container text-[16px] shrink-0">
                             qr_code_scanner
                           </span>
-                          <span>Arahkan QR kupon peserta ke dalam kotak pemindai</span>
+                          <span>
+                            {cameraActive
+                              ? 'Arahkan QR Code atau Barcode kupon ke dalam kotak pemindai'
+                              : 'Kamera nonaktif · Klik "Buka Kamera" untuk scan otomatis atau klik "Pindai Foto"'}
+                          </span>
                         </span>
                       </div>
                     </div>

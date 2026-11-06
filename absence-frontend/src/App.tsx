@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   CheckCircle2,
   ArrowLeft,
@@ -19,7 +20,6 @@ import {
   AttendeePass,
   AttendeeRole,
   BackendAdmin,
-  EDUPASS_LOGO_URL,
   InfoSourceType,
   INITIAL_ATTENDEES,
   INITIAL_SCAN_LOGS,
@@ -564,9 +564,8 @@ export default function App() {
           <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
             <img
               alt="EduPass Logo"
-              referrerPolicy="no-referrer"
               className="h-6 sm:h-7 w-auto object-contain shrink-0"
-              src={EDUPASS_LOGO_URL}
+              src="/logo.png"
             />
             <span className="font-display text-[15px] sm:text-[18px] font-bold tracking-tight text-[#181b2b] truncate">
               <span className="hidden sm:inline">EduPass Open House</span>
@@ -621,15 +620,23 @@ export default function App() {
       </header>
 
       {/* Admin Login Popup Modal */}
-      {isLoginModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#181b2b]/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
-          onClick={closeLoginModal}
-        >
-          <div
-            className="bg-white rounded-[24px] max-w-md w-full p-5 sm:p-7 shadow-[0_24px_60px_rgba(24,27,43,0.2)] border border-[#E2E8F0] relative my-auto max-h-[92vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
+      <AnimatePresence>
+        {isLoginModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#181b2b]/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
+            onClick={closeLoginModal}
           >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-white rounded-[24px] max-w-md w-full p-5 sm:p-7 shadow-[0_24px_60px_rgba(24,27,43,0.2)] border border-[#E2E8F0] relative my-auto max-h-[92vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
             {/* Close Button */}
             <button
               type="button"
@@ -739,57 +746,80 @@ export default function App() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Content for Regular User */}
       <main className="flex-1">
-        {userStep === 'my-ticket' && myCreatedPass ? (
-          <div className="max-w-xl lg:max-w-2xl mx-auto px-3 sm:px-6 py-6 sm:py-10 space-y-5">
-            {/* Success Confirmation Banner */}
-            <div className="rounded-[20px] bg-[#D5E8E6] border border-[#506260]/25 px-4 sm:px-5 py-4 flex items-start gap-3 sm:gap-3.5 shadow-resting-card no-print">
-              <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#506260] shrink-0 mt-0.5 shadow-2xs">
-                <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="font-display text-[16px] sm:text-[17px] font-bold text-[#181b2b]">
-                  Tiket QR Anda Berhasil Dibuat!
-                </h2>
-                <p className="text-[12px] sm:text-[13px] text-[#464651] mt-0.5 leading-relaxed">
-                  Tunjukkan QR Code{' '}
-                  <span className="font-mono-code font-bold text-[#181b2b]">
-                    {myCreatedPass.couponCode}
-                  </span>{' '}
-                  di bawah ini kepada petugas saat tiba di loket acara.
-                </p>
-              </div>
-            </div>
-
-            {/* User's Created QR Ticket */}
-            <DigitalPassCard pass={myCreatedPass} canvasBg="cream" />
-
-            {/* Action to Register Another Ticket */}
-            <div className="text-center pt-2 pb-6 no-print">
-              <button
-                type="button"
-                onClick={() => setUserStep('form')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] sm:text-[14px] font-medium text-[#464651] hover:text-[#181b2b] hover:bg-black/5 transition-colors cursor-pointer"
+        <AnimatePresence mode="wait">
+          {userStep === 'my-ticket' && myCreatedPass ? (
+            <motion.div
+              key="my-ticket-view"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -15 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+              className="max-w-xl lg:max-w-2xl mx-auto px-3 sm:px-6 py-6 sm:py-10 space-y-5"
+            >
+              {/* Success Confirmation Banner */}
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="rounded-[20px] bg-[#D5E8E6] border border-[#506260]/25 px-4 sm:px-5 py-4 flex items-start gap-3 sm:gap-3.5 shadow-resting-card no-print"
               >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Kembali ke Halaman Sambutan &amp; Formulir</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <RegistrationView
-            attendees={attendees}
-            schools={schools}
-            isLoadingSchools={isLoadingSchools}
-            nextCouponCode={getNextCouponCode()}
-            onRegister={handleRegister}
-          />
-        )}
+                <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#506260] shrink-0 mt-0.5 shadow-2xs">
+                  <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-display text-[16px] sm:text-[17px] font-bold text-[#181b2b]">
+                    Tiket QR Anda Berhasil Dibuat!
+                  </h2>
+                  <p className="text-[12px] sm:text-[13px] text-[#464651] mt-0.5 leading-relaxed">
+                    Tunjukkan QR Code{' '}
+                    <span className="font-mono-code font-bold text-[#181b2b]">
+                      {myCreatedPass.couponCode}
+                    </span>{' '}
+                    di bawah ini kepada petugas saat tiba di loket acara.
+                  </p>
+                </div>
+              </motion.div>
+
+              {/* User's Created QR Ticket */}
+              <DigitalPassCard pass={myCreatedPass} canvasBg="cream" />
+
+              {/* Action to Register Another Ticket */}
+              <div className="text-center pt-2 pb-6 no-print">
+                <button
+                  type="button"
+                  onClick={() => setUserStep('form')}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] sm:text-[14px] font-medium text-[#464651] hover:text-[#181b2b] hover:bg-black/5 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Kembali ke Halaman Sambutan &amp; Formulir</span>
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="registration-form-view"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.3 }}
+            >
+              <RegistrationView
+                attendees={attendees}
+                schools={schools}
+                isLoadingSchools={isLoadingSchools}
+                nextCouponCode={getNextCouponCode()}
+                onRegister={handleRegister}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );

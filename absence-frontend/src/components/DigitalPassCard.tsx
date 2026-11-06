@@ -16,7 +16,7 @@ import {
   Megaphone
 } from 'lucide-react';
 import { AttendeePass, TrialClassType } from '../types';
-import { generateQrMatrix, downloadPassAsPng } from '../utils/barcode';
+import { generateQrMatrix, generateCode128Bars, downloadPassAsPng } from '../utils/barcode';
 
 interface DigitalPassCardProps {
   pass: AttendeePass;
@@ -32,6 +32,7 @@ export const DigitalPassCard: React.FC<DigitalPassCardProps> = ({
   const [copied, setCopied] = useState(false);
 
   const qrMatrix = generateQrMatrix(pass.couponCode);
+  const barcodeBars = generateCode128Bars(pass.couponCode);
 
   const notchBgClass =
     canvasBg === 'cream'
@@ -153,19 +154,35 @@ export const DigitalPassCard: React.FC<DigitalPassCardProps> = ({
 
           {/* Trial Class & Info Source Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-            <div className="rounded-xl bg-[#f4f2ff] border border-[#9FA0FF]/50 px-3.5 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2.5 sm:gap-3">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#9FA0FF]/30 flex items-center justify-center shrink-0">
-                {renderTrialClassIcon(pass.trialClass)}
+            {pass.role === 'Guru Pendamping' ? (
+              <div className="rounded-xl bg-[#D5E8E6]/40 border border-[#506260]/30 px-3.5 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2.5 sm:gap-3">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#D5E8E6] text-[#506260] flex items-center justify-center shrink-0">
+                  <UserCheck className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider text-[#506260]">
+                    Peran Peserta
+                  </p>
+                  <p className="font-display text-[13px] sm:text-[14px] font-bold text-[#181b2b] break-words">
+                    Guru Pendamping
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider text-[#32328a]">
-                  Trial Class Pilihan
-                </p>
-                <p className="font-display text-[13px] sm:text-[14px] font-bold text-[#181b2b] break-words">
-                  {trialClassLabel}
-                </p>
+            ) : (
+              <div className="rounded-xl bg-[#f4f2ff] border border-[#9FA0FF]/50 px-3.5 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2.5 sm:gap-3">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#9FA0FF]/30 flex items-center justify-center shrink-0">
+                  {renderTrialClassIcon(pass.trialClass)}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider text-[#32328a]">
+                    Trial Class Pilihan
+                  </p>
+                  <p className="font-display text-[13px] sm:text-[14px] font-bold text-[#181b2b] break-words">
+                    {trialClassLabel}
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] px-3.5 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2.5 sm:gap-3">
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#ececff] flex items-center justify-center shrink-0 text-[#5354ad]">
@@ -197,11 +214,11 @@ export const DigitalPassCard: React.FC<DigitalPassCardProps> = ({
           />
         </div>
 
-        {/* Lower Section: Monospace Coupon Code + Exclusive QR Code */}
+        {/* Lower Section: Monospace Coupon Code + Code-128 Barcode + Standard QR Code */}
         <div className={compact ? 'p-4 sm:p-5 pt-2 sm:pt-3 text-center' : 'p-4 sm:p-6 pt-3 sm:pt-4 text-center'}>
           <div className="flex items-center justify-center gap-1.5 mb-2 text-[11px] sm:text-[12px] font-semibold uppercase tracking-wider text-[#64748B]">
             <QrCode className="w-3.5 h-3.5 text-[#5354ad]" />
-            <span>QR CODE VERIFIKASI KUPON</span>
+            <span>KUPON &amp; BARCODE LOKET RESMI</span>
           </div>
 
           {/* Monospace Coupon Code */}
@@ -223,12 +240,41 @@ export const DigitalPassCard: React.FC<DigitalPassCardProps> = ({
             </button>
           </div>
 
-          {/* Rendered Scannable QR Code Exclusively */}
-          <div className="mt-3 mb-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center">
-            <div className="p-2.5 sm:p-3 bg-white rounded-xl border border-[#E2E8F0] shadow-2xs">
+          {/* Rendered Scannable Code-128 Barcode */}
+          <div className="mt-2 mb-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3 flex flex-col items-center justify-center">
+            <div className="w-full max-w-[280px] bg-white p-2 rounded-lg border border-[#E2E8F0] shadow-2xs">
+              <svg
+                viewBox={`0 0 ${barcodeBars.length} 36`}
+                className="w-full h-8 sm:h-9"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label={`Barcode Code-128 untuk ${pass.couponCode}`}
+              >
+                {barcodeBars.map((isBar, bIdx) =>
+                  isBar ? (
+                    <rect
+                      key={bIdx}
+                      x={bIdx}
+                      y={0}
+                      width={1}
+                      height={36}
+                      fill="#181b2b"
+                    />
+                  ) : null
+                )}
+              </svg>
+            </div>
+            <span className="font-mono-code text-[10px] sm:text-[11px] text-[#64748B] mt-1 font-semibold tracking-widest">
+              BARCODE 1D · {pass.couponCode}
+            </span>
+          </div>
+
+          {/* Rendered Scannable QR Code */}
+          <div className="mb-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-3.5 sm:p-4 flex flex-col items-center justify-center">
+            <div className="p-2 sm:p-2.5 bg-white rounded-xl border border-[#E2E8F0] shadow-2xs">
               <svg
                 viewBox={`0 0 ${qrMatrix.length} ${qrMatrix.length}`}
-                className="w-32 h-32 sm:w-36 sm:h-36"
+                className="w-28 h-28 sm:w-32 sm:h-32"
                 role="img"
                 aria-label={`QR Code untuk ${pass.couponCode}`}
               >
@@ -248,13 +294,13 @@ export const DigitalPassCard: React.FC<DigitalPassCardProps> = ({
                 )}
               </svg>
             </div>
-            <p className="font-mono-code text-[11px] sm:text-[12px] text-[#64748B] mt-2.5 font-semibold">
+            <p className="font-mono-code text-[11px] sm:text-[12px] text-[#64748B] mt-2 font-semibold">
               QR PASS RESMI · {pass.couponCode}
             </p>
           </div>
 
           <p className="text-[12px] sm:text-[13px] text-[#64748B] mt-2 max-w-sm mx-auto">
-            Tunjukkan QR Code ini kepada petugas di loket masuk untuk pemindaian kehadiran.
+            Tunjukkan QR Code atau Barcode ini kepada petugas di loket masuk untuk pemindaian kehadiran.
           </p>
 
           {/* Action Buttons on Ticket Footer */}

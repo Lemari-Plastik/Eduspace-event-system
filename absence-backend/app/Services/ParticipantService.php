@@ -29,13 +29,20 @@ class ParticipantService
             $attempt++;
             $couponCode = $this->generateNextCouponCode();
 
+            $trialClass = ($data['role'] === 'guru_pendamping')
+                ? ($data['trial_class'] ?? '-')
+                : ($data['trial_class'] ?? 'IT');
+            if (empty($trialClass)) {
+                $trialClass = '-';
+            }
+
             try {
                 return Participant::create([
                     'role' => $data['role'],
                     'name' => $data['name'],
                     'identity_number' => $data['identity_number'],
                     'school_id' => (int) $data['school_id'],
-                    'trial_class' => $data['trial_class'],
+                    'trial_class' => $trialClass,
                     'referral_source' => $data['referral_source'],
                     'referral_detail' => $data['referral_detail'] ?? null,
                     'coupon_code' => $couponCode,

@@ -2,7 +2,7 @@ export type AttendeeRole = 'Siswa' | 'Guru Pendamping';
 
 export type PassStatus = 'UNREDEEMED' | 'REDEEMED';
 
-export type TrialClassType = 'IT' | 'DKV' | 'KULINER' | 'MOBILE_LEGENDS';
+export type TrialClassType = 'IT' | 'DKV' | 'KULINER' | 'MOBILE_LEGENDS' | '-' | 'NONE';
 
 export type InfoSourceType =
   | 'Medsos'
@@ -116,8 +116,7 @@ export interface ScanFeedback {
   timestamp: string;
 }
 
-export const EDUPASS_LOGO_URL =
-  'https://lh3.googleusercontent.com/aida/AEtjO1X0_htjdU4wC-Nq_TAEtDflxR9GTY7Wt6e-cak6MIICgRqkpJ735U25yz816hzoB-We2j1DBvJfVZAP0hERQwhYHkrdzf6BQjqKrbo-fybuCXdtWCzABVyhSSL_J10E1oo27H6h3INO57mB0qyN8uW4GHPDurZiI8GpdxxnqYjL5WSS_d1ZI4biBJJh6Eu7hbsriDKLtwvoyahRXUuf9sqOl5LzDl8V58ZPESLFJDM';
+export const EDUPASS_LOGO_URL = '/logo.png';
 
 export const INITIAL_ATTENDEES: AttendeePass[] = [];
 

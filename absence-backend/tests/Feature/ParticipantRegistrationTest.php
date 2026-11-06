@@ -135,4 +135,22 @@ class ParticipantRegistrationTest extends TestCase
             ->assertJsonPath('referral_source', 'Medsos')
             ->assertJsonPath('referral_detail', 'Instagram @official');
     }
+
+    public function test_teacher_can_register_without_trial_class(): void
+    {
+        $school = School::factory()->create();
+
+        $response = $this->postJson('/api/register', [
+            'role' => 'guru_pendamping',
+            'name' => 'Teacher Two',
+            'identity_number' => '1987654321',
+            'school_id' => $school->id,
+            'referral_source' => 'Teman',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('name', 'Teacher Two')
+            ->assertJsonPath('role', 'guru_pendamping')
+            ->assertJsonPath('trial_class', '-');
+    }
 }

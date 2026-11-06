@@ -27,7 +27,12 @@ class RegisterParticipantRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'identity_number' => ['required', 'string', 'max:50'],
             'school_id' => ['required', 'exists:schools,id'],
-            'trial_class' => ['required', 'in:IT,DKV,KULINER,MOBILE_LEGENDS'],
+            'trial_class' => [
+                'required_if:role,siswa',
+                'nullable',
+                'string',
+                'in:IT,DKV,KULINER,MOBILE_LEGENDS,NONE,-',
+            ],
             'referral_source' => ['required', 'string', 'max:100'],
             'referral_detail' => ['required_if:referral_source,Medsos,Banner,Event', 'nullable', 'string', 'max:100'],
         ];
