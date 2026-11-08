@@ -527,13 +527,13 @@ export async function decodeBarcodeFromCanvas(
 // =========================================================================
 
 /**
- * Renders the perforated digital pass credential with both CODE 128 Barcode
- * and QR Code onto a high-DPI HTML5 Canvas and triggers a PNG download.
+ * Renders the perforated digital pass credential showcasing the unique coupon code
+ * onto a high-DPI HTML5 Canvas and triggers a clean PNG download.
  */
 export function downloadPassAsPng(pass: AttendeePass): void {
   const scale = 2;
   const width = 460;
-  const height = 690;
+  const height = 480;
 
   const canvas = document.createElement('canvas');
   canvas.width = width * scale;
@@ -558,9 +558,9 @@ export function downloadPassAsPng(pass: AttendeePass): void {
   ctx.beginPath();
   ctx.roundRect(cardX, cardY, cardW, cardH, radius);
   ctx.fillStyle = '#FFFFFF';
-  ctx.shadowColor = 'rgba(26, 29, 46, 0.14)';
-  ctx.shadowBlur = 24;
-  ctx.shadowOffsetY = 8;
+  ctx.shadowColor = 'rgba(26, 29, 46, 0.12)';
+  ctx.shadowBlur = 20;
+  ctx.shadowOffsetY = 6;
   ctx.fill();
   ctx.restore();
 
@@ -574,7 +574,7 @@ export function downloadPassAsPng(pass: AttendeePass): void {
   // Top Header Band (Mint #D5E8E6)
   ctx.save();
   ctx.beginPath();
-  ctx.roundRect(cardX, cardY, cardW, 74, [radius, radius, 0, 0]);
+  ctx.roundRect(cardX, cardY, cardW, 68, [radius, radius, 0, 0]);
   ctx.fillStyle = '#D5E8E6';
   ctx.fill();
   ctx.restore();
@@ -582,161 +582,132 @@ export function downloadPassAsPng(pass: AttendeePass): void {
   // Header Text
   ctx.fillStyle = '#181b2b';
   ctx.font = '700 13px "Plus Jakarta Sans", sans-serif';
-  ctx.fillText('EDUPASS OPEN HOUSE 2026', cardX + 24, cardY + 32);
+  ctx.fillText('EDUPASS OPEN HOUSE 2026', cardX + 24, cardY + 28);
 
   ctx.fillStyle = '#506260';
   ctx.font = '500 12px "Inter", sans-serif';
-  ctx.fillText('TIKET PAS RESMI & KUPON KEHADIRAN', cardX + 24, cardY + 53);
+  ctx.fillText('TIKET PAS RESMI & KUPON KEHADIRAN', cardX + 24, cardY + 48);
 
   // Attendee Name & Role
   ctx.fillStyle = '#64748B';
-  ctx.font = '500 12px "Inter", sans-serif';
-  ctx.fillText('NAMA PESERTA & PERAN', cardX + 24, cardY + 108);
+  ctx.font = '500 11px "Inter", sans-serif';
+  ctx.fillText('NAMA PESERTA & PERAN', cardX + 24, cardY + 98);
 
   ctx.fillStyle = '#181b2b';
-  ctx.font = '700 22px "Plus Jakarta Sans", sans-serif';
-  ctx.fillText(pass.fullName.slice(0, 26), cardX + 24, cardY + 134);
+  ctx.font = '700 20px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(pass.fullName.slice(0, 26), cardX + 24, cardY + 122);
 
   // Role Badge Pill
   const roleLabel = pass.role.toUpperCase();
   ctx.fillStyle = pass.role === 'Siswa' ? '#9FA0FF' : '#D5E8E6';
   ctx.beginPath();
-  ctx.roundRect(cardX + cardW - 154, cardY + 110, 130, 28, 14);
+  ctx.roundRect(cardX + cardW - 148, cardY + 98, 124, 26, 13);
   ctx.fill();
   ctx.fillStyle = '#181b2b';
   ctx.font = '600 11px "Inter", sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(roleLabel, cardX + cardW - 89, cardY + 128);
+  ctx.fillText(roleLabel, cardX + cardW - 86, cardY + 115);
   ctx.textAlign = 'left';
 
   // School Origin & NISN/NIP
   ctx.fillStyle = '#464651';
-  ctx.font = '500 14px "Inter", sans-serif';
-  ctx.fillText(pass.schoolOrigin, cardX + 24, cardY + 160);
+  ctx.font = '500 13px "Inter", sans-serif';
+  ctx.fillText(pass.schoolOrigin, cardX + 24, cardY + 146);
 
   ctx.fillStyle = '#64748B';
-  ctx.font = '500 13px "JetBrains Mono", monospace';
+  ctx.font = '500 12px "JetBrains Mono", monospace';
   ctx.fillText(
     `${pass.role === 'Siswa' ? 'NISN' : 'NIP'}: ${pass.nisnOrNip}`,
     cardX + 24,
-    cardY + 182
+    cardY + 166
   );
 
   // Trial Class / Role Status Box
   ctx.fillStyle = '#F4F2FF';
   ctx.beginPath();
-  ctx.roundRect(cardX + 24, cardY + 200, cardW - 48, 64, 12);
+  ctx.roundRect(cardX + 24, cardY + 180, cardW - 48, 56, 12);
   ctx.fill();
 
   if (pass.role === 'Guru Pendamping') {
     ctx.fillStyle = '#32328A';
     ctx.font = '700 12px "Inter", sans-serif';
-    ctx.fillText('PERAN: GURU PENDAMPING (KHUSUS PENDAMPINGAN)', cardX + 38, cardY + 224);
+    ctx.fillText('PERAN: GURU PENDAMPING', cardX + 36, cardY + 202);
   } else {
     const trialLabel =
       pass.trialClass === 'MOBILE_LEGENDS' ? 'MOBILE LEGENDS' : pass.trialClass;
     ctx.fillStyle = '#32328A';
     ctx.font = '700 12px "Inter", sans-serif';
-    ctx.fillText(`TRIAL CLASS: ${trialLabel}`, cardX + 38, cardY + 224);
+    ctx.fillText(`TRIAL CLASS: ${trialLabel}`, cardX + 36, cardY + 202);
   }
 
   const sourceText = pass.infoSourceDetail
     ? `${pass.infoSource} (${pass.infoSourceDetail})`
     : pass.infoSource;
-  ctx.fillStyle = '#181b2b';
-  ctx.font = '500 12px "Inter", sans-serif';
-  ctx.fillText(`Sumber Info: ${sourceText.slice(0, 38)}`, cardX + 38, cardY + 246);
+  ctx.fillStyle = '#64748B';
+  ctx.font = '500 11px "Inter", sans-serif';
+  ctx.fillText(`Sumber Info: ${sourceText.slice(0, 40)}`, cardX + 36, cardY + 222);
 
   // Perforated Joint Axis
-  const perfY = cardY + 284;
+  const perfY = cardY + 252;
   ctx.save();
-  ctx.setLineDash([7, 6]);
+  ctx.setLineDash([6, 5]);
   ctx.strokeStyle = '#CBD5E1';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(cardX + 18, perfY);
-  ctx.lineTo(cardX + cardW - 18, perfY);
+  ctx.moveTo(cardX + 16, perfY);
+  ctx.lineTo(cardX + cardW - 16, perfY);
   ctx.stroke();
   ctx.restore();
 
   // Left & Right Concave Punch Notches
   ctx.fillStyle = '#FFF3E3';
   ctx.beginPath();
-  ctx.arc(cardX, perfY, 16, 0, Math.PI * 2);
-  ctx.arc(cardX + cardW, perfY, 16, 0, Math.PI * 2);
+  ctx.arc(cardX, perfY, 14, 0, Math.PI * 2);
+  ctx.arc(cardX + cardW, perfY, 14, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.strokeStyle = '#E2E8F0';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.arc(cardX, perfY, 16, -Math.PI / 2, Math.PI / 2);
+  ctx.arc(cardX, perfY, 14, -Math.PI / 2, Math.PI / 2);
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(cardX + cardW, perfY, 16, Math.PI / 2, (Math.PI * 3) / 2);
+  ctx.arc(cardX + cardW, perfY, 14, Math.PI / 2, (Math.PI * 3) / 2);
   ctx.stroke();
 
-  // Lower Section: Monospace Coupon Code + Code-128 Barcode + Standard QR Code
-  ctx.fillStyle = '#64748B';
-  ctx.font = '500 12px "Inter", sans-serif';
+  // Lower Section: Sleek Dark Box showcasing the Unique Coupon Code boldly
+  const boxX = cardX + 20;
+  const boxY = perfY + 22;
+  const boxW = cardW - 40;
+  const boxH = 126;
+
+  ctx.fillStyle = '#181b2b';
+  ctx.beginPath();
+  ctx.roundRect(boxX, boxY, boxW, boxH, 16);
+  ctx.fill();
+
+  ctx.fillStyle = '#c1c1ff';
+  ctx.font = '600 11px "JetBrains Mono", monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('KODE KUPON & BARCODE LOKET', width / 2, perfY + 26);
+  ctx.fillText('KODE UNIK KUPON KEHADIRAN', width / 2, boxY + 28);
 
-  ctx.fillStyle = '#181b2b';
-  ctx.font = '800 24px "JetBrains Mono", monospace';
-  ctx.fillText(pass.couponCode, width / 2, perfY + 54);
+  // Big Bold Monospace Coupon Code
+  ctx.fillStyle = '#9FA0FF';
+  ctx.font = '800 34px "JetBrains Mono", monospace';
+  ctx.fillText(pass.couponCode, width / 2, boxY + 70);
 
-  // Render CODE-128 Barcode onto Canvas
-  const barcodeBars = generateCode128Bars(pass.couponCode);
-  const barHeight = 36;
-  const barModuleWidth = (cardW - 80) / barcodeBars.length;
-  const barStartX = cardX + 40;
-  const barStartY = perfY + 68;
+  ctx.fillStyle = '#dfe1f9';
+  ctx.font = '500 11px "Inter", sans-serif';
+  ctx.fillText('Tunjukkan kode unik ini kepada petugas loket', width / 2, boxY + 102);
 
-  ctx.fillStyle = '#181b2b';
-  for (let i = 0; i < barcodeBars.length; i++) {
-    if (barcodeBars[i]) {
-      ctx.fillRect(barStartX + i * barModuleWidth, barStartY, barModuleWidth + 0.2, barHeight);
-    }
-  }
-
-  // Render Standard Scannable QR Code onto Canvas
-  const matrix = generateQrMatrix(pass.couponCode);
-  const qrSize = 120;
-  const cellSize = qrSize / matrix.length;
-  const qrStartX = (width - qrSize) / 2;
-  const qrStartY = barStartY + barHeight + 16;
-
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(qrStartX - 6, qrStartY - 6, qrSize + 12, qrSize + 12);
-  ctx.strokeStyle = '#E2E8F0';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(qrStartX - 6, qrStartY - 6, qrSize + 12, qrSize + 12);
-
-  ctx.fillStyle = '#181b2b';
-  for (let r = 0; r < matrix.length; r++) {
-    for (let c = 0; c < matrix.length; c++) {
-      if (matrix[r][c]) {
-        ctx.fillRect(
-          qrStartX + c * cellSize,
-          qrStartY + r * cellSize,
-          cellSize + 0.3,
-          cellSize + 0.3
-        );
-      }
-    }
-  }
-
+  // Footer Branding
   ctx.fillStyle = '#64748B';
   ctx.font = '500 11px "Inter", sans-serif';
-  ctx.fillText(
-    'Tunjukkan QR Code / Barcode ini kepada petugas loket',
-    width / 2,
-    cardY + cardH - 16
-  );
+  ctx.fillText('EduPass Open House 2026 · SMK Metland Cibitung', width / 2, cardY + cardH - 12);
 
   const dataUrl = canvas.toDataURL('image/png');
   const link = document.createElement('a');
-  link.download = `Tiket-OpenHouse-${pass.couponCode}.png`;
+  link.download = `Tiket-Kupon-${pass.couponCode}.png`;
   link.href = dataUrl;
   document.body.appendChild(link);
   link.click();

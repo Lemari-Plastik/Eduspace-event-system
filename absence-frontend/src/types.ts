@@ -11,6 +11,7 @@ export type InfoSourceType =
   | 'Teman'
   | 'Guru'
   | 'Website'
+  | 'Promosi/Presentasi'
   | 'Lainnya';
 
 export interface TrialClassMeta {
@@ -33,8 +34,34 @@ export const INFO_SOURCE_OPTIONS: InfoSourceType[] = [
   'Teman',
   'Guru',
   'Website',
+  'Promosi/Presentasi',
   'Lainnya',
 ];
+
+export const SOURCE_DETAIL_OPTIONS: Record<'Medsos' | 'Banner' | 'Event', string[]> = {
+  Medsos: [
+    'Instagram',
+    'Facebook',
+    'TikTok',
+  ],
+  Banner: [
+    'Spanduk Promosi di area Taman Aster',
+    'Spanduk Promosi di Palang Perlintasan Rel Kereta Telaga Murni',
+  ],
+  Event: [
+    'Gen z Indonesia 2026 di Platinum Cineplex Millenia Hub Metland Cibitung (2026)',
+    'Sambut Generasi Cinta Prestasi di PLatinum Cineplex Millenia Hub Metland Cibitung (2026)',
+    'Metschoorama 2026 di SMK Metland Cibitung',
+    'Education workshop x MLBB Tournament di SMK Metland Cibitung (2025)',
+  ],
+};
+
+export function getSourceDetailOptions(source: string): string[] {
+  if (source === 'Medsos' || source === 'Banner' || source === 'Event') {
+    return SOURCE_DETAIL_OPTIONS[source];
+  }
+  return [];
+}
 
 export interface School {
   id: number;

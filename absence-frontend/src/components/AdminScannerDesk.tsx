@@ -9,9 +9,10 @@ import {
   ScanLogEntry,
   School,
   TRIAL_CLASS_OPTIONS,
-  TrialClassType
+  TrialClassType,
+  getSourceDetailOptions
 } from '../types';
-import { decodeBarcodeFromCanvas, playScanSound } from '../utils/barcode';
+import { playScanSound } from '../utils/barcode';
 
 export type AdminPageId = 'admin-scanner' | 'activity-history' | 'admin-participants';
 
@@ -68,17 +69,9 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
     return () => clearTimeout(t);
   }, [toastMessage]);
 
-  // Scanner page states
+  // Coupon verification page states
   const [couponInput, setCouponInput] = useState('');
-  const [flashOn, setFlashOn] = useState(false);
-  const [camFlipped, setCamFlipped] = useState(false);
-  const [cameraActive, setCameraActive] = useState(false);
-  const [scanSuccessFlash, setScanSuccessFlash] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const lastScannedRef = useRef<{ code: string; time: number } | null>(null);
-  const isScanningFrameRef = useRef(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [lastVerifiedAttendee, setLastVerifiedAttendee] = useState<AttendeePass | null>(null);
 
   // Participants page states
   const [participantSearch, setParticipantSearch] = useState('');
@@ -113,170 +106,6 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
     'all' | 'success' | 'rejected' | 'manual'
   >('all');
   const [isExportingLog, setIsExportingLog] = useState(false);
-
-  // Cleanup camera stream
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((tr) => tr.stop());
-      }
-    };
-  }, []);
-
-  const toggleLiveCamera = async () => {
-    if (cameraActive) {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((tr) => tr.stop());
-        streamRef.current = null;
-      }
-      setCameraActive(false);
-      return;
-    }
-
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: camFlipped ? 'user' : 'environment' },
-          audio: false,
-        });
-        streamRef.current = stream;
-        setCameraActive(true);
-        setTimeout(() => {
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        }, 50);
-      } else {
-        showToast('Kamera perangkat tidak tersedia di peramban ini.');
-      }
-    } catch {
-      showToast('Izin kamera belum diberikan. Gunakan input manual kupon.');
-    }
-  };
-
-  // Real-time camera barcode & QR code auto-scanner loop
-  useEffect(() => {
-    if (!cameraActive) return;
-
-    let isActive = true;
-    let scanTimer: any = null;
-
-    const scanFrame = async () => {
-      if (!isActive || !cameraActive || isScanningFrameRef.current) return;
-
-      const video = videoRef.current;
-      if (!video || video.readyState < 2 || video.videoWidth === 0) return;
-
-      isScanningFrameRef.current = true;
-      try {
-        const detected = await decodeBarcodeFromCanvas(video);
-        if (detected && isActive) {
-          const clean = detected.trim().toUpperCase();
-          const now = Date.now();
-          const last = lastScannedRef.current;
-
-          // Prevent rapid duplicate trigger of the same code within 3.5 seconds
-          if (!last || last.code !== clean || now - last.time > 3500) {
-            lastScannedRef.current = { code: clean, time: now };
-            playScanSound('success');
-            setScanSuccessFlash(true);
-            setTimeout(() => setScanSuccessFlash(false), 900);
-
-            await onProcessScanCode(clean, 'auto');
-          }
-        }
-      } catch {
-        // Ignore single frame decode errors
-      } finally {
-        isScanningFrameRef.current = false;
-      }
-    };
-
-    scanTimer = setInterval(scanFrame, 160);
-
-    return () => {
-      isActive = false;
-      if (scanTimer) clearInterval(scanTimer);
-    };
-  }, [cameraActive, onProcessScanCode]);
-
-  // Global hardware USB barcode gun keyboard listener
-  useEffect(() => {
-    let buffer = '';
-    let lastKeyTime = Date.now();
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const isInput =
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable);
-
-      const now = Date.now();
-      if (now - lastKeyTime > 90) {
-        buffer = '';
-      }
-      lastKeyTime = now;
-
-      if (e.key === 'Enter') {
-        const clean = buffer.trim().toUpperCase();
-        if (clean.length >= 4 && (clean.startsWith('ABSC-') || /^ABSC\d+$/i.test(clean))) {
-          if (!isInput) {
-            e.preventDefault();
-          }
-          playScanSound('success');
-          onProcessScanCode(clean, 'auto');
-          buffer = '';
-        }
-      } else if (e.key.length === 1) {
-        buffer += e.key;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onProcessScanCode]);
-
-  const handleImageFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      showToast('Memindai file gambar barcode / QR...');
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-      img.src = objectUrl;
-
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-      });
-
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Gagal menyiapkan canvas gambar.');
-      ctx.drawImage(img, 0, 0);
-      URL.revokeObjectURL(objectUrl);
-
-      const detected = await decodeBarcodeFromCanvas(canvas);
-      if (detected) {
-        const clean = detected.trim().toUpperCase();
-        playScanSound('success');
-        showToast(`Berhasil mendeteksi kupon: ${clean}`);
-        await onProcessScanCode(clean, 'auto');
-      } else {
-        showToast('Tidak ada QR code atau barcode yang terdeteksi di gambar ini.');
-      }
-    } catch (err: any) {
-      showToast(err.message || 'Gagal memindai file gambar.');
-    } finally {
-      if (e.target) e.target.value = '';
-    }
-  };
 
   // KPI calculations
   const totalCount = attendees.length;
@@ -461,9 +290,14 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
     try {
       const fb = await onProcessScanCode(clean, 'manual');
       if (fb.type === 'success') {
+        playScanSound('success');
         showToast(`Berhasil: Kupon ${clean} valid dan status kehadiran tersimpan!`);
+        if (fb.pass) {
+          setLastVerifiedAttendee(fb.pass);
+        }
         setCouponInput('');
       } else {
+        playScanSound('error');
         showToast(fb.title + ' — ' + clean);
       }
     } catch (err: any) {
@@ -502,9 +336,9 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
             }`}
           >
             <span className="material-symbols-outlined mr-space-sm text-[20px]">
-              qr_code_scanner
+              confirmation_number
             </span>
-            Barcode Scanner
+            Verifikasi Kupon
           </button>
 
           <button
@@ -648,9 +482,9 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-[16px]">
-                qr_code_scanner
+                confirmation_number
               </span>
-              <span>Scanner</span>
+              <span>Verifikasi</span>
             </button>
 
             <button
@@ -811,7 +645,7 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                         walkInInfoSource === 'Event') &&
                       !walkInInfoSourceDetail.trim()
                     ) {
-                      setWalkInError(`Detail sumber untuk ${walkInInfoSource} wajib diisi.`);
+                      setWalkInError(`Detail sumber untuk ${walkInInfoSource} wajib dipilih.`);
                       return;
                     }
 
@@ -940,8 +774,12 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                       <label className="block text-xs font-medium text-text-muted mb-1">Sumber Info</label>
                       <select
                         value={walkInInfoSource}
-                        onChange={(e) => setWalkInInfoSource(e.target.value as InfoSourceType)}
-                        className="w-full h-11 px-3 rounded-xl border border-border-subtle bg-surface text-on-surface text-sm focus:border-primary focus:outline-none"
+                        onChange={(e) => {
+                          const src = e.target.value as InfoSourceType;
+                          setWalkInInfoSource(src);
+                          setWalkInInfoSourceDetail('');
+                        }}
+                        className="w-full h-11 px-3 rounded-xl border border-border-subtle bg-surface text-on-surface text-sm focus:border-primary focus:outline-none cursor-pointer"
                       >
                         {INFO_SOURCE_OPTIONS.map((src) => (
                           <option key={src} value={src}>
@@ -955,15 +793,22 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                       walkInInfoSource === 'Banner' ||
                       walkInInfoSource === 'Event') && (
                       <div>
-                        <label className="block text-xs font-medium text-text-muted mb-1">Detail Sumber</label>
-                        <input
-                          type="text"
+                        <label className="block text-xs font-medium text-text-muted mb-1">
+                          Detail Sumber ({walkInInfoSource})
+                        </label>
+                        <select
                           required
                           value={walkInInfoSourceDetail}
                           onChange={(e) => setWalkInInfoSourceDetail(e.target.value)}
-                          placeholder="Instagram, Brosur, dll"
-                          className="w-full h-11 px-3.5 rounded-xl border border-border-subtle bg-surface text-on-surface text-sm focus:border-primary focus:outline-none"
-                        />
+                          className="w-full h-11 px-3 rounded-xl border border-border-subtle bg-surface text-on-surface text-sm focus:border-primary focus:outline-none cursor-pointer"
+                        >
+                          <option value="" disabled>-- Pilih Detail {walkInInfoSource} --</option>
+                          {getSourceDetailOptions(walkInInfoSource).map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     )}
                   </div>
@@ -998,17 +843,17 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
           )}
 
           {/* =================================================================== */}
-          {/* PAGE 1: BARCODE SCANNER (Admin Fast Coupon Scanner)                 */}
+          {/* PAGE 1: VERIFIKASI KODE KUPON (Admin Coupon Verification Desk)      */}
           {/* =================================================================== */}
           {activePage === 'admin-scanner' && (
             <div className="flex flex-col w-full">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4 mb-5 sm:mb-6">
                 <div>
                   <h1 className="font-display text-[22px] sm:text-[26px] lg:text-[28px] font-bold text-on-surface tracking-tight">
-                    Verifikasi &amp; Scan Kehadiran
+                    Verifikasi Kode Kupon Kehadiran
                   </h1>
                   <p className="text-[13px] sm:text-[14px] text-text-muted mt-0.5">
-                    Arahkan kamera ke QR Code peserta atau input kode kupon manual untuk pencatatan presensi real-time.
+                    Masukkan kode unik kupon peserta (contoh: ABSC-0001) untuk pencatatan presensi real-time.
                   </p>
                 </div>
               </div>
@@ -1066,230 +911,232 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-error-container flex items-center justify-center text-coral-dark shrink-0">
                     <span className="material-symbols-outlined text-[22px]">
-                      flip_camera_ios
+                      shield
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Main Workspace Grid: Viewfinder & Manual Input Side-by-Side on Desktop */}
+              {/* Main Verification Workspace: Focused Input & Verification Desk */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 w-full items-start">
-                {/* Camera Viewfinder Card (7 cols on lg, 8 on xl) */}
-                <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
-                  <div className="bg-surface rounded-2xl p-4 sm:p-6 shadow-2xs border border-border-subtle flex flex-col">
-                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-3 w-3 relative">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-container opacity-75" />
-                          <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
-                        </span>
-                        <span className="font-display text-[16px] sm:text-[18px] font-bold text-on-surface">
-                          Kamera Pemindai Aktif
+                {/* Left (7 cols): Primary Coupon Code Entry Console */}
+                <div className="lg:col-span-7 flex flex-col gap-4">
+                  <div className="bg-surface rounded-2xl p-5 sm:p-7 shadow-2xs border border-border-subtle flex flex-col">
+                    <div className="flex items-center gap-2.5 mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-primary-container text-on-primary-container flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-[22px]">
+                          confirmation_number
                         </span>
                       </div>
-
-                      <div className="flex items-center gap-1.5 sm:gap-2">
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleImageFileScan}
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          title="Unggah foto atau screenshot tiket QR/Barcode"
-                          className="h-9 sm:h-10 px-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-[12px] sm:text-[13px] font-medium flex items-center gap-1.5 transition-all cursor-pointer"
-                        >
-                          <span className="material-symbols-outlined text-[18px] text-primary">
-                            image
-                          </span>
-                          <span className="hidden sm:inline">Pindai Foto</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={toggleLiveCamera}
-                          className={`h-9 sm:h-10 px-3 rounded-xl text-[12px] sm:text-[13px] font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
-                            cameraActive
-                              ? 'bg-primary-container text-on-primary-container'
-                              : 'bg-surface-container hover:bg-surface-container-high text-on-surface'
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[17px]">
-                            {cameraActive ? 'videocam_off' : 'videocam'}
-                          </span>
-                          <span>{cameraActive ? 'Matikan' : 'Buka Kamera'}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setFlashOn((v) => !v)}
-                          title="Flashlight"
-                          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-                            flashOn
-                              ? 'bg-primary-container text-on-primary-container'
-                              : 'bg-surface-container hover:bg-surface-container-high text-on-surface'
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[18px]">
-                            flashlight_on
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setCamFlipped((v) => !v)}
-                          title="Ganti Kamera Depan/Belakang"
-                          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center transition-all cursor-pointer ${
-                            camFlipped ? 'rotate-180' : ''
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[18px]">
-                            flip_camera_ios
-                          </span>
-                        </button>
+                      <div>
+                        <h2 className="font-display text-[18px] sm:text-[20px] font-bold text-on-surface">
+                          Input Kode Kupon Peserta
+                        </h2>
+                        <p className="text-[12px] sm:text-[13px] text-text-muted">
+                          Ketik kode unik (contoh: ABSC-0001) untuk memvalidasi kehadiran peserta secara instan.
+                        </p>
                       </div>
                     </div>
 
-                    <div className={`relative w-full aspect-video sm:h-[380px] lg:h-[440px] rounded-2xl overflow-hidden bg-on-surface flex items-center justify-center shadow-inner transition-all duration-300 ${
-                      scanSuccessFlash ? 'ring-4 ring-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.5)]' : ''
-                    }`}>
-                      {cameraActive ? (
-                        <video
-                          ref={videoRef}
-                          autoPlay
-                          playsInline
-                          muted
-                          className="absolute inset-0 w-full h-full object-cover opacity-90"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 bg-gradient-to-b from-inverse-surface/90 via-on-surface to-inverse-surface flex items-center justify-center">
-                          <div className="w-full h-full opacity-10 bg-[radial-gradient(#9FA0FF_1px,transparent_1px)] [background-size:16px_16px]" />
-                        </div>
-                      )}
-
-                      {/* Success Scan Flash Overlay */}
-                      {scanSuccessFlash && (
-                        <div className="absolute inset-0 z-30 bg-emerald-500/20 backdrop-blur-[2px] flex items-center justify-center transition-all">
-                          <div className="px-5 py-3 rounded-2xl bg-emerald-600 text-white font-display font-bold text-[15px] sm:text-[16px] shadow-2xl flex items-center gap-2.5 animate-bounce">
-                            <span className="material-symbols-outlined text-[24px]">
-                              check_circle
-                            </span>
-                            <span>KUPON BERHASIL TERPINDAI!</span>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="relative z-10 w-64 h-48 sm:w-80 sm:h-56 lg:w-96 lg:h-64 flex items-center justify-center">
-                        <div className={`absolute top-0 left-0 w-8 sm:w-10 h-8 sm:h-10 rounded-tl-xl border-t-4 border-l-4 transition-colors ${
-                          scanSuccessFlash ? 'border-emerald-400' : 'border-primary-container'
-                        }`} />
-                        <div className={`absolute top-0 right-0 w-8 sm:w-10 h-8 sm:h-10 rounded-tr-xl border-t-4 border-r-4 transition-colors ${
-                          scanSuccessFlash ? 'border-emerald-400' : 'border-primary-container'
-                        }`} />
-                        <div className={`absolute bottom-0 left-0 w-8 sm:w-10 h-8 sm:h-10 rounded-bl-xl border-b-4 border-l-4 transition-colors ${
-                          scanSuccessFlash ? 'border-emerald-400' : 'border-primary-container'
-                        }`} />
-                        <div className={`absolute bottom-0 right-0 w-8 sm:w-10 h-8 sm:h-10 rounded-br-xl border-b-4 border-r-4 transition-colors ${
-                          scanSuccessFlash ? 'border-emerald-400' : 'border-primary-container'
-                        }`} />
-                        <div className={`absolute inset-x-2 h-1 bg-gradient-to-r from-transparent ${
-                          scanSuccessFlash ? 'via-emerald-400' : 'via-primary-container'
-                        } to-transparent shadow-[0_0_16px_#9FA0FF] animate-pulse`} />
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-primary-container/10 flex items-center justify-center">
-                          <span className="material-symbols-outlined text-primary-container/70 text-[28px] sm:text-[32px]">
-                            filter_center_focus
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="absolute bottom-3 inset-x-3 z-20 flex justify-center">
-                        <span className="px-3.5 py-1.5 rounded-full bg-inverse-surface/85 backdrop-blur-md text-inverse-on-surface text-[11px] sm:text-[13px] flex items-center gap-1.5 text-center">
-                          <span className="material-symbols-outlined text-primary-container text-[16px] shrink-0">
-                            qr_code_scanner
-                          </span>
-                          <span>
-                            {cameraActive
-                              ? 'Arahkan QR Code atau Barcode kupon ke dalam kotak pemindai'
-                              : 'Kamera nonaktif · Klik "Buka Kamera" untuk scan otomatis atau klik "Pindai Foto"'}
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Manual Input Card (5 cols on lg, 4 on xl) */}
-                <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
-                  <div className="bg-surface rounded-2xl p-4 sm:p-6 shadow-2xs border border-border-subtle flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="material-symbols-outlined text-primary text-[20px]">
-                          keyboard
-                        </span>
-                        <h3 className="font-display text-[16px] sm:text-[18px] font-bold text-on-surface">
-                          Input Manual Kupon
-                        </h3>
-                      </div>
-                      <p className="text-[12px] sm:text-[13px] text-text-muted mb-4">
-                        Ketik kode kupon jika barcode kotor, terlipat, atau layar redup.
-                      </p>
-
-                      <form
-                        onSubmit={handleVerifyFormSubmit}
-                        className="space-y-3"
-                      >
+                    <form
+                      onSubmit={handleVerifyFormSubmit}
+                      className="mt-4 space-y-4"
+                    >
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="coupon-code-input"
+                          className="block text-[12px] sm:text-[13px] font-semibold text-on-surface uppercase tracking-wider"
+                        >
+                          Kode Kupon Unik
+                        </label>
                         <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-text-muted">
-                            <span className="material-symbols-outlined text-[20px]">
+                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-text-muted">
+                            <span className="material-symbols-outlined text-[22px] text-primary">
                               pin
                             </span>
                           </div>
                           <input
+                            id="coupon-code-input"
                             type="text"
                             maxLength={12}
+                            autoFocus
                             value={couponInput}
                             onChange={(e) =>
                               setCouponInput(e.target.value.toUpperCase())
                             }
                             placeholder="ABSC-0001"
-                            className="w-full h-[50px] pl-11 pr-4 rounded-xl bg-surface-container-lowest border border-border-subtle text-on-surface font-mono-code text-[18px] sm:text-[20px] font-bold uppercase tracking-wider focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-container/40 transition-all"
+                            className="w-full h-[56px] sm:h-[62px] pl-12 pr-12 rounded-xl bg-surface-container-lowest border-2 border-border-subtle text-on-surface font-mono-code text-[22px] sm:text-[26px] font-extrabold uppercase tracking-widest focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary-container/30 transition-all placeholder:text-text-muted/40"
                           />
+                          {couponInput && (
+                            <button
+                              type="button"
+                              onClick={() => setCouponInput('')}
+                              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-text-muted hover:text-on-surface transition-colors cursor-pointer"
+                              title="Hapus input"
+                            >
+                              <span className="material-symbols-outlined text-[20px]">
+                                cancel
+                              </span>
+                            </button>
+                          )}
                         </div>
+                        <p className="text-[11px] sm:text-[12px] text-text-muted">
+                          Format resmi: <code className="font-mono-code font-bold text-primary">ABSC-XXXX</code> (huruf besar otomatis). Tekan <kbd className="px-1.5 py-0.5 rounded bg-surface-container text-[11px] font-semibold">Enter</kbd> untuk verifikasi langsung.
+                        </p>
+                      </div>
 
+                      <div className="pt-2">
                         <button
                           type="submit"
-                          className="w-full h-[50px] px-4 rounded-xl bg-primary-container hover:bg-primary-dark text-on-primary-container font-display text-[15px] font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                          disabled={!couponInput.trim()}
+                          className="w-full h-[52px] sm:h-[56px] px-6 rounded-xl bg-primary-container hover:bg-primary-dark text-on-primary-container font-display text-[15px] sm:text-[16px] font-bold flex items-center justify-center gap-2.5 shadow-sm transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
                         >
-                          <span className="material-symbols-outlined text-[19px]">
+                          <span className="material-symbols-outlined text-[22px]">
                             verified
                           </span>
-                          <span>Verifikasi Kupon</span>
+                          <span>Verifikasi Kehadiran</span>
                         </button>
-                      </form>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Confirmed Ticket Preview Banner / Last Scanned Attendee */}
+                  {lastVerifiedAttendee ? (
+                    <div className="bg-secondary-container/40 border border-secondary-container rounded-2xl p-4 sm:p-5 flex flex-col gap-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-7 h-7 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-fixed shrink-0">
+                            <span className="material-symbols-outlined text-[18px]">check</span>
+                          </span>
+                          <span className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-on-secondary-fixed">
+                            Kupon Berhasil Divalidasi
+                          </span>
+                        </div>
+                        <span className="font-mono-code text-[12px] font-bold text-on-surface">
+                          {lastVerifiedAttendee.couponCode}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-secondary-container/50">
+                        <div>
+                          <p className="font-display text-[16px] sm:text-[18px] font-bold text-on-surface">
+                            {lastVerifiedAttendee.fullName}
+                          </p>
+                          <p className="text-[12px] sm:text-[13px] text-text-muted">
+                            {lastVerifiedAttendee.schoolOrigin} · {lastVerifiedAttendee.role === 'Siswa' ? 'NISN' : 'NIP'}: {lastVerifiedAttendee.nisnOrNip}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {renderTrialClassBadge(lastVerifiedAttendee.trialClass)}
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface text-on-surface text-[11px] sm:text-[12px] font-medium shadow-2xs">
+                            <span className="material-symbols-outlined text-[14px] text-secondary">
+                              schedule
+                            </span>
+                            {lastVerifiedAttendee.checkedInAt || 'Tervalidasi'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-surface rounded-2xl p-5 border border-dashed border-border-subtle flex items-center gap-3.5 text-text-muted">
+                      <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-[22px]">
+                          hourglass_empty
+                        </span>
+                      </div>
+                      <div className="text-[12px] sm:text-[13px]">
+                        <p className="font-semibold text-on-surface">Siap Menerima Kupon</p>
+                        <p>Masukkan kode kupon peserta pada form di atas untuk memulai verifikasi kehadiran.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right (5 cols): Activity Overview & Quick Desk Guide */}
+                <div className="lg:col-span-5 flex flex-col gap-4">
+                  {/* Recent Verifications Feed */}
+                  <div className="bg-surface rounded-2xl p-4 sm:p-5 shadow-2xs border border-border-subtle flex flex-col">
+                    <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-border-subtle">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary text-[20px]">
+                          history
+                        </span>
+                        <h3 className="font-display text-[15px] sm:text-[16px] font-bold text-on-surface">
+                          Verifikasi Terkini
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onChangePage('activity-history')}
+                        className="text-[11px] sm:text-[12px] font-medium text-primary hover:underline cursor-pointer flex items-center gap-0.5"
+                      >
+                        <span>Lihat Semua</span>
+                        <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                      </button>
                     </div>
 
-                    {/* Desk Guide Tips */}
-                    <div className="mt-5 pt-4 border-t border-border-subtle space-y-2.5">
-                      <p className="text-[12px] font-bold uppercase tracking-wider text-text-muted">
-                        Panduan Cepat Loket
+                    {scanLogs.length === 0 ? (
+                      <p className="text-[12px] sm:text-[13px] text-text-muted py-4 text-center">
+                        Belum ada aktivitas verifikasi kupon hari ini.
                       </p>
-                      <div className="space-y-2 text-[12px] text-on-surface-variant">
-                        <div className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-primary text-[11px] font-bold shrink-0 mt-0.5">1</span>
-                          <span>Kupon valid otomatis menandai peserta hadir dengan stempel WIB.</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-primary text-[11px] font-bold shrink-0 mt-0.5">2</span>
-                          <span>Kupon yang sudah terpakai otomatis ditolak sebagai duplikat (422).</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-primary text-[11px] font-bold shrink-0 mt-0.5">3</span>
-                          <span>Buka menu &ldquo;Daftar Peserta&rdquo; untuk pencarian manual nama sekolah.</span>
-                        </div>
+                    ) : (
+                      <div className="space-y-2.5 max-h-[280px] overflow-y-auto no-scrollbar">
+                        {scanLogs.slice(0, 5).map((log) => (
+                          <div
+                            key={log.id}
+                            className="p-2.5 rounded-xl bg-surface-container-lowest border border-border-subtle flex items-center justify-between gap-2"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-display text-[13px] font-bold text-on-surface truncate">
+                                {log.fullName}
+                              </p>
+                              <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
+                                <span className="font-mono-code font-semibold text-primary">{log.couponCode}</span>
+                                <span>·</span>
+                                <span className="truncate">{log.schoolOrigin}</span>
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              {log.status === 'success' || log.status === 'manual' ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary-container text-on-secondary-fixed text-[10px] font-bold">
+                                  Hadir
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-error-container text-coral-dark text-[10px] font-bold">
+                                  Ditolak
+                                </span>
+                              )}
+                              <p className="text-[10px] text-text-muted mt-0.5">
+                                {log.timestamp.split(' ')[0] || log.relativeTime}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Desk Operating Guidelines */}
+                  <div className="bg-surface rounded-2xl p-4 sm:p-5 shadow-2xs border border-border-subtle">
+                    <p className="text-[12px] font-bold uppercase tracking-wider text-text-muted mb-2.5">
+                      Panduan Operasional Loket
+                    </p>
+                    <div className="space-y-2 text-[12px] text-on-surface-variant">
+                      <div className="flex items-start gap-2">
+                        <span className="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-primary text-[11px] font-bold shrink-0 mt-0.5">1</span>
+                        <span>Minta peserta menyebutkan atau memperlihatkan kode kupon tiket mereka.</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-primary text-[11px] font-bold shrink-0 mt-0.5">2</span>
+                        <span>Ketik kode kupon (contoh: ABSC-0001) lalu tekan Enter.</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-primary text-[11px] font-bold shrink-0 mt-0.5">3</span>
+                        <span>Kupon valid langsung menandai peserta hadir dengan stempel waktu WIB.</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-primary text-[11px] font-bold shrink-0 mt-0.5">4</span>
+                        <span>Jika peserta lupa kode kupon, cari nama peserta di menu &ldquo;Daftar Peserta&rdquo;.</span>
                       </div>
                     </div>
                   </div>

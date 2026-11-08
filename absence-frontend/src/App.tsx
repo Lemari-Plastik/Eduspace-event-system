@@ -667,16 +667,16 @@ export default function App() {
             statusText: '422 Duplikat',
             subStatusText: existingTarget?.checkedInAt
               ? `Sudah diverifikasi ${existingTarget.checkedInAt}`
-              : 'Sudah di-scan sebelumnya',
+              : 'Sudah digunakan sebelumnya',
             deskName: adminUser ? `Admin ${adminUser.name}` : 'Admin Loket 01',
-            verifierNote: 'Pencegahan Double-Scan',
+            verifierNote: 'Kupon Duplikat',
           };
           setScanLogs((prev) => [duplicateEntry, ...prev]);
 
           const fb: ScanFeedback = {
             id: `scan-${Date.now()}`,
             type: 'duplicate',
-            title: 'Peringatan: Kupon Sudah Di-scan',
+            title: 'Peringatan: Kupon Sudah Digunakan',
             message:
               errMsg ||
               `Kupon ${code} milik ${existingTarget?.fullName || 'peserta'} sudah pernah diverifikasi sebelumnya.`,
@@ -749,16 +749,16 @@ export default function App() {
           statusText: '422 Duplikat',
           subStatusText: existingTarget.checkedInAt
             ? `Sudah diverifikasi ${existingTarget.checkedInAt}`
-            : 'Sudah di-scan sebelumnya',
+            : 'Sudah digunakan sebelumnya',
           deskName: adminUser ? `Admin ${adminUser.name}` : 'Admin Loket 01',
-          verifierNote: 'Pencegahan Double-Scan',
+          verifierNote: 'Kupon Duplikat',
         };
         setScanLogs((prev) => [duplicateEntry, ...prev]);
 
         const fb: ScanFeedback = {
           id: `scan-${Date.now()}`,
           type: 'duplicate',
-          title: 'Peringatan: Kupon Sudah Di-scan',
+          title: 'Peringatan: Kupon Sudah Digunakan',
           message: `Kupon ${code} milik ${existingTarget.fullName} sudah pernah diverifikasi sebelumnya.`,
           codeScanned: code,
           pass: existingTarget,
@@ -898,7 +898,7 @@ export default function App() {
   }
 
   // =========================================================================
-  // RENDER REGULAR USER ROLE (Welcome Hero -> Form -> QR Ticket)
+  // RENDER REGULAR USER ROLE (Welcome Hero -> Form -> Digital Coupon Pass)
   // =========================================================================
   return (
     <div className="min-h-screen flex flex-col bg-[#FFF3E3]">
@@ -1135,19 +1135,19 @@ export default function App() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="font-display text-[16px] sm:text-[17px] font-bold text-[#181b2b]">
-                    Tiket QR Anda Berhasil Dibuat!
+                    Kode Kupon Anda Berhasil Dibuat!
                   </h2>
                   <p className="text-[12px] sm:text-[13px] text-[#464651] mt-0.5 leading-relaxed">
-                    Tunjukkan QR Code{' '}
+                    Tunjukkan atau sebutkan kode unik{' '}
                     <span className="font-mono-code font-bold text-[#181b2b]">
                       {myCreatedPass.couponCode}
                     </span>{' '}
-                    di bawah ini kepada petugas saat tiba di loket acara.
+                    kepada petugas loket saat tiba di acara untuk verifikasi kehadiran.
                   </p>
                 </div>
               </motion.div>
 
-              {/* User's Created QR Ticket */}
+              {/* User's Created Digital Ticket Pass */}
               <DigitalPassCard pass={myCreatedPass} canvasBg="cream" />
 
               {/* Action to Register Another Ticket */}

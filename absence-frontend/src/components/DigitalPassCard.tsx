@@ -4,7 +4,7 @@ import {
   Copy,
   Download,
   Printer,
-  QrCode,
+  Ticket,
   GraduationCap,
   UserCheck,
   Clock,
@@ -16,7 +16,7 @@ import {
   Megaphone
 } from 'lucide-react';
 import { AttendeePass, TrialClassType } from '../types';
-import { generateQrMatrix, generateCode128Bars, downloadPassAsPng } from '../utils/barcode';
+import { downloadPassAsPng } from '../utils/barcode';
 
 interface DigitalPassCardProps {
   pass: AttendeePass;
@@ -30,9 +30,6 @@ export const DigitalPassCard: React.FC<DigitalPassCardProps> = ({
   compact = false,
 }) => {
   const [copied, setCopied] = useState(false);
-
-  const qrMatrix = generateQrMatrix(pass.couponCode);
-  const barcodeBars = generateCode128Bars(pass.couponCode);
 
   const notchBgClass =
     canvasBg === 'cream'
@@ -214,93 +211,54 @@ export const DigitalPassCard: React.FC<DigitalPassCardProps> = ({
           />
         </div>
 
-        {/* Lower Section: Monospace Coupon Code + Code-128 Barcode + Standard QR Code */}
+        {/* Lower Section: Prominent Unique Coupon Code (No Barcode / QR) */}
         <div className={compact ? 'p-4 sm:p-5 pt-2 sm:pt-3 text-center' : 'p-4 sm:p-6 pt-3 sm:pt-4 text-center'}>
-          <div className="flex items-center justify-center gap-1.5 mb-2 text-[11px] sm:text-[12px] font-semibold uppercase tracking-wider text-[#64748B]">
-            <QrCode className="w-3.5 h-3.5 text-[#5354ad]" />
-            <span>KUPON &amp; BARCODE LOKET RESMI</span>
+          <div className="flex items-center justify-center gap-1.5 mb-2.5 text-[11px] sm:text-[12px] font-semibold uppercase tracking-wider text-[#64748B]">
+            <Ticket className="w-3.5 h-3.5 text-[#5354ad]" />
+            <span>KODE UNIK KUPON KEHADIRAN RESMI</span>
           </div>
 
-          {/* Monospace Coupon Code */}
-          <div className="my-1.5 sm:my-2 flex items-center justify-center gap-2">
-            <span className="font-mono-code text-[24px] sm:text-[28px] leading-[30px] sm:leading-[34px] font-bold tracking-[0.05em] uppercase text-[#181b2b] select-all">
-              {pass.couponCode}
+          {/* Premium Voucher Code Display Box */}
+          <div className="my-2 bg-[#181b2b] text-white rounded-2xl p-5 sm:p-6 shadow-md border border-[#2d314d] relative overflow-hidden">
+            {/* Subtle decorative glow */}
+            <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-[#9FA0FF]/15 blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-12 -left-12 w-32 h-32 rounded-full bg-[#5354ad]/20 blur-2xl pointer-events-none" />
+
+            <span className="inline-block px-3 py-1 rounded-full bg-[#9FA0FF]/20 text-[#9FA0FF] border border-[#9FA0FF]/30 text-[11px] font-semibold tracking-wider uppercase mb-2">
+              KUPON UNIK ANDA
             </span>
-            <button
-              type="button"
-              onClick={handleCopyCode}
-              title="Salin kode kupon"
-              className="no-print inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl border border-[#E2E8F0] text-[#64748B] hover:text-[#181b2b] hover:bg-[#9FA0FF]/15 transition-colors cursor-pointer"
-            >
-              {copied ? (
-                <Check className="w-4 h-4 text-[#506260]" />
-              ) : (
-                <Copy className="w-4 h-4" />
-              )}
-            </button>
-          </div>
 
-          {/* Rendered Scannable Code-128 Barcode */}
-          <div className="mt-2 mb-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3 flex flex-col items-center justify-center">
-            <div className="w-full max-w-[280px] bg-white p-2 rounded-lg border border-[#E2E8F0] shadow-2xs">
-              <svg
-                viewBox={`0 0 ${barcodeBars.length} 36`}
-                className="w-full h-8 sm:h-9"
-                preserveAspectRatio="none"
-                role="img"
-                aria-label={`Barcode Code-128 untuk ${pass.couponCode}`}
+            <div className="flex items-center justify-center gap-2 sm:gap-3 my-1">
+              <span className="font-mono-code text-[28px] sm:text-[36px] leading-tight font-extrabold tracking-[0.1em] text-[#9FA0FF] select-all drop-shadow-sm">
+                {pass.couponCode}
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                title="Salin kode unik"
+                className="no-print inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white transition-all cursor-pointer border border-white/10"
               >
-                {barcodeBars.map((isBar, bIdx) =>
-                  isBar ? (
-                    <rect
-                      key={bIdx}
-                      x={bIdx}
-                      y={0}
-                      width={1}
-                      height={36}
-                      fill="#181b2b"
-                    />
-                  ) : null
+                {copied ? (
+                  <Check className="w-4 h-4 text-[#D5E8E6]" />
+                ) : (
+                  <Copy className="w-4 h-4 text-white/80" />
                 )}
-              </svg>
+              </button>
             </div>
-            <span className="font-mono-code text-[10px] sm:text-[11px] text-[#64748B] mt-1 font-semibold tracking-widest">
-              BARCODE 1D · {pass.couponCode}
-            </span>
-          </div>
 
-          {/* Rendered Scannable QR Code */}
-          <div className="mb-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-3.5 sm:p-4 flex flex-col items-center justify-center">
-            <div className="p-2 sm:p-2.5 bg-white rounded-xl border border-[#E2E8F0] shadow-2xs">
-              <svg
-                viewBox={`0 0 ${qrMatrix.length} ${qrMatrix.length}`}
-                className="w-28 h-28 sm:w-32 sm:h-32"
-                role="img"
-                aria-label={`QR Code untuk ${pass.couponCode}`}
-              >
-                {qrMatrix.map((row, rIdx) =>
-                  row.map((cell, cIdx) =>
-                    cell ? (
-                      <rect
-                        key={`${rIdx}-${cIdx}`}
-                        x={cIdx}
-                        y={rIdx}
-                        width={1.03}
-                        height={1.03}
-                        fill="#181b2b"
-                      />
-                    ) : null
-                  )
-                )}
-              </svg>
-            </div>
-            <p className="font-mono-code text-[11px] sm:text-[12px] text-[#64748B] mt-2 font-semibold">
-              QR PASS RESMI · {pass.couponCode}
+            {copied && (
+              <p className="text-[11px] sm:text-[12px] text-[#D5E8E6] font-medium mt-1">
+                ✓ Kode berhasil disalin ke papan klip!
+              </p>
+            )}
+
+            <p className="text-[12px] sm:text-[13px] text-[#A5ACBA] mt-2 max-w-sm mx-auto leading-relaxed">
+              Tunjukkan atau sebutkan kode unik di atas kepada petugas loket untuk verifikasi kehadiran.
             </p>
           </div>
 
-          <p className="text-[12px] sm:text-[13px] text-[#64748B] mt-2 max-w-sm mx-auto">
-            Tunjukkan QR Code atau Barcode ini kepada petugas di loket masuk untuk pemindaian kehadiran.
+          <p className="text-[11px] sm:text-[12px] text-[#64748B] mt-3 max-w-sm mx-auto">
+            Simpan atau unduh kartu tiket ini sebagai bukti pendaftaran resmi Anda di EduPass Open House 2026.
           </p>
 
           {/* Action Buttons on Ticket Footer */}
@@ -311,7 +269,7 @@ export const DigitalPassCard: React.FC<DigitalPassCardProps> = ({
               className="h-[48px] sm:h-[52px] px-4 rounded-xl bg-[#9FA0FF] hover:bg-[#7B7CE6] active:scale-[0.98] text-[#181b2b] font-semibold text-[14px] sm:text-[15px] inline-flex items-center justify-center gap-2 transition-all shadow-primary-glow cursor-pointer whitespace-nowrap shrink-0"
             >
               <Download className="w-4 h-4" />
-              <span>Unduh Tiket QR (PNG)</span>
+              <span>Unduh Kartu Tiket (PNG)</span>
             </button>
 
             <button

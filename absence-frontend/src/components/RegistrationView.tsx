@@ -24,7 +24,8 @@ import {
   InfoSourceType,
   School,
   TRIAL_CLASS_OPTIONS,
-  TrialClassType
+  TrialClassType,
+  getSourceDetailOptions
 } from '../types';
 
 interface RegistrationViewProps {
@@ -91,11 +92,11 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
     }
   };
 
-  const getDetailPlaceholder = (source: InfoSourceType): string => {
-    if (source === 'Medsos') return 'Contoh: Instagram @smkmetlandcibitung / TikTok';
-    if (source === 'Banner') return 'Contoh: Spanduk Gerbang Sekolah / Jalan Utama';
-    if (source === 'Event') return 'Contoh: EduFair Sekolah / Sosialisasi BK';
-    return '';
+  const getDetailSelectPlaceholder = (source: InfoSourceType): string => {
+    if (source === 'Medsos') return '-- Pilih Media Sosial (Instagram / Facebook / TikTok) --';
+    if (source === 'Banner') return '-- Pilih Lokasi Spanduk Promosi --';
+    if (source === 'Event') return '-- Pilih Agenda Event --';
+    return '-- Pilih Detail Sumber --';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,7 +124,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       return;
     }
     if (needsSourceDetail && !trimmedDetail) {
-      setErrorMessage(`Mohon lengkapi Detail Sumber untuk pilihan "${infoSource}".`);
+      setErrorMessage(`Mohon pilih Detail Sumber untuk pilihan "${infoSource}".`);
       return;
     }
 
@@ -245,7 +246,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   whileTap={{ scale: 0.97 }}
                   className="group h-[48px] sm:h-[52px] px-5 sm:px-7 rounded-xl bg-[#9FA0FF] hover:bg-[#8B8CF5] text-[#181b2b] font-display font-bold text-[14px] sm:text-[15px] inline-flex items-center justify-center gap-2.5 transition-all shadow-primary-glow cursor-pointer whitespace-nowrap"
                 >
-                  <span>Daftar &amp; Klaim Kupon QR</span>
+                  <span>Daftar &amp; Dapatkan Kode Kupon</span>
                   <ArrowRight className="w-4 h-4 shrink-0 transition-transform duration-200 group-hover:translate-x-1" />
                 </motion.button>
 
@@ -289,7 +290,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                 </div>
 
                 <h2 className="font-display text-[20px] sm:text-[23px] font-bold leading-snug text-white">
-                  Satu QR Pass untuk Seluruh Rangkaian Acara
+                  Satu Kode Kupon untuk Seluruh Rangkaian Acara
                 </h2>
 
                 <p className="text-[13px] sm:text-[14px] leading-[20px] sm:leading-[21px] text-[#dfe1f9]/85">
@@ -485,7 +486,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
           {/* Bottom Transition Prompt to Form */}
           <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
             <p className="text-[13px] sm:text-[14px] text-[#64748B]">
-              Siap bergabung di acara ini? Lengkapi formulir kredensial di bawah untuk mendapatkan tiket QR Anda.
+              Siap bergabung di acara ini? Lengkapi formulir kredensial di bawah untuk mendapatkan kode kupon unik Anda.
             </p>
             <motion.button
               type="button"
@@ -522,7 +523,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
             Formulir Kredensial Peserta
           </h2>
           <p className="mt-1 text-[13px] sm:text-[14px] text-[#464651]">
-            Isi data di bawah ini untuk menerbitkan QR Pass kehadiran Anda.
+            Isi data di bawah ini untuk menerbitkan kode kupon kehadiran Anda.
           </p>
         </div>
 
@@ -830,7 +831,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
             </AnimatePresence>
           </div>
 
-          {/* 4. Dropdown: Sumber Informasi & Conditional Input: Detail Sumber */}
+          {/* 4. Dropdown: Sumber Informasi & Conditional Dropdown: Detail Sumber */}
           <div className="pt-1">
             <div className={`grid grid-cols-1 ${needsSourceDetail ? 'sm:grid-cols-2' : ''} gap-4`}>
               <div>
@@ -838,7 +839,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   htmlFor="select-info-source"
                   className="block text-[14px] sm:text-[15px] font-medium text-[#181b2b] mb-1.5"
                 >
-                  Sumber Informasi
+                  Darimana kamu tahu SMK Metland?
                 </label>
                 <select
                   id="select-info-source"
@@ -846,13 +847,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   onChange={(e) => {
                     const nextSource = e.target.value as InfoSourceType;
                     setInfoSource(nextSource);
-                    if (
-                      nextSource !== 'Medsos' &&
-                      nextSource !== 'Banner' &&
-                      nextSource !== 'Event'
-                    ) {
-                      setInfoSourceDetail('');
-                    }
+                    setInfoSourceDetail('');
                   }}
                   className="w-full min-h-[48px] px-3.5 sm:px-4 rounded-xl bg-white border border-[#E2E8F0] focus:border-2 focus:border-[#9FA0FF] focus:outline-none text-[14px] sm:text-[15px] text-[#181b2b] transition-colors cursor-pointer"
                 >
@@ -873,19 +868,30 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                     transition={{ duration: 0.24 }}
                   >
                     <label
-                      htmlFor="input-source-detail"
+                      htmlFor="select-source-detail"
                       className="block text-[14px] sm:text-[15px] font-medium text-[#181b2b] mb-1.5"
                     >
-                      Detail Sumber ({infoSource})
+                      Pilih Detail Sumber ({infoSource})
                     </label>
-                    <input
-                      id="input-source-detail"
-                      type="text"
-                      value={infoSourceDetail}
+                    <select
+                      id="select-source-detail"
+                      value={
+                        getSourceDetailOptions(infoSource).find(
+                          (opt) => opt.toLowerCase() === infoSourceDetail.toLowerCase()
+                        ) || infoSourceDetail
+                      }
                       onChange={(e) => setInfoSourceDetail(e.target.value)}
-                      placeholder={getDetailPlaceholder(infoSource)}
-                      className="w-full min-h-[48px] px-3.5 sm:px-4 rounded-xl bg-white border border-[#E2E8F0] focus:border-2 focus:border-[#9FA0FF] focus:outline-none text-[14px] sm:text-[15px] text-[#181b2b] placeholder:text-[#64748B] transition-colors"
-                    />
+                      className="w-full min-h-[48px] px-3.5 sm:px-4 rounded-xl bg-white border border-[#E2E8F0] focus:border-2 focus:border-[#9FA0FF] focus:outline-none text-[14px] sm:text-[15px] text-[#181b2b] transition-colors cursor-pointer"
+                    >
+                      <option value="" disabled>
+                        {getDetailSelectPlaceholder(infoSource)}
+                      </option>
+                      {getSourceDetailOptions(infoSource).map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -908,7 +914,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                 </>
               ) : (
                 <>
-                  <span>Klaim Tiket &amp; Kupon QR Sekarang</span>
+                  <span>Klaim Kode Kupon Sekarang</span>
                   <ArrowRight className="w-4 h-4 shrink-0 transition-transform duration-200 group-hover:translate-x-1.5" />
                 </>
               )}
