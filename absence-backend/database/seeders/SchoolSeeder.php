@@ -13,10 +13,10 @@ class SchoolSeeder extends Seeder
     public function run(): void
     {
         $schools = [
-            'SMP Negeri 5 Cibitung',
+            'SMPN Negeri 5 Cibitung',
             'SMP Negeri 2 Cibitung',
             'SMP Sariputra',
-            'SMPN 2 Cikbar',
+            'SMPN 2 Cikarang Barat',
             'SMP IT Darussalam',
             'SMP IT Daarul Fikri',
             'SMPN 1 Cikarang Barat',
@@ -28,7 +28,7 @@ class SchoolSeeder extends Seeder
             'SMP Negeri 8 Cibitung',
             'SMP Negeri 3 Cibitung',
             'SMP IT Al Fath',
-            'MTSS RMB',
+            'MTS RMB',
             'SMP IT Fitrah Haniah',
             'SMP IT Al Imaroh',
             'SMP IT Nurul Fajri',
@@ -40,6 +40,18 @@ class SchoolSeeder extends Seeder
 
         foreach ($schools as $name) {
             School::firstOrCreate(['name' => $name]);
+        }
+
+        // Clean up legacy schools not in the official 23 list
+        $fallback = School::where('name', 'SMP Negeri 1 Cibitung')->first();
+        $legacySchools = School::whereNotIn('name', $schools)->get();
+        foreach ($legacySchools as $legacy) {
+            if ($fallback) {
+                \Illuminate\Support\Facades\DB::table('participants')
+                    ->where('school_id', $legacy->id)
+                    ->update(['school_id' => $fallback->id]);
+            }
+            $legacy->delete();
         }
     }
 }

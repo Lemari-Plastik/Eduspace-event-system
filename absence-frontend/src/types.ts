@@ -146,10 +146,10 @@ export interface ScanFeedback {
 export const EDUPASS_LOGO_URL = '/logo.png';
 
 export const DEFAULT_SCHOOLS: School[] = [
-  { id: 1, name: 'SMP Negeri 5 Cibitung' },
+  { id: 1, name: 'SMPN Negeri 5 Cibitung' },
   { id: 2, name: 'SMP Negeri 2 Cibitung' },
   { id: 3, name: 'SMP Sariputra' },
-  { id: 4, name: 'SMPN 2 Cikbar' },
+  { id: 4, name: 'SMPN 2 Cikarang Barat' },
   { id: 5, name: 'SMP IT Darussalam' },
   { id: 6, name: 'SMP IT Daarul Fikri' },
   { id: 7, name: 'SMPN 1 Cikarang Barat' },
@@ -161,7 +161,7 @@ export const DEFAULT_SCHOOLS: School[] = [
   { id: 13, name: 'SMP Negeri 8 Cibitung' },
   { id: 14, name: 'SMP Negeri 3 Cibitung' },
   { id: 15, name: 'SMP IT Al Fath' },
-  { id: 16, name: 'MTSS RMB' },
+  { id: 16, name: 'MTS RMB' },
   { id: 17, name: 'SMP IT Fitrah Haniah' },
   { id: 18, name: 'SMP IT Al Imaroh' },
   { id: 19, name: 'SMP IT Nurul Fajri' },
