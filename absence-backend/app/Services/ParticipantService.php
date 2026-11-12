@@ -40,7 +40,7 @@ class ParticipantService
                 return Participant::create([
                     'role' => $data['role'],
                     'name' => $data['name'],
-                    'identity_number' => $data['identity_number'],
+                    'identity_number' => !empty($data['identity_number']) ? $data['identity_number'] : '-',
                     'school_id' => (int) $data['school_id'],
                     'trial_class' => $trialClass,
                     'referral_source' => $data['referral_source'],

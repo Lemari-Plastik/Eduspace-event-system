@@ -69,11 +69,34 @@ class ParticipantRegistrationTest extends TestCase
             ->assertJsonValidationErrors([
                 'role',
                 'name',
-                'identity_number',
                 'school_id',
                 'trial_class',
                 'referral_source',
             ]);
+    }
+
+    public function test_can_register_without_identity_number(): void
+    {
+        $school = School::factory()->create();
+
+        $payload = [
+            'role' => 'siswa',
+            'name' => 'Siswa Tanpa NISN',
+            'school_id' => $school->id,
+            'trial_class' => 'DKV',
+            'referral_source' => 'Teman',
+        ];
+
+        $response = $this->postJson('/api/register', $payload);
+
+        $response->assertCreated()
+            ->assertJsonPath('name', 'Siswa Tanpa NISN')
+            ->assertJsonPath('identity_number', '-');
+
+        $this->assertDatabaseHas('participants', [
+            'name' => 'Siswa Tanpa NISN',
+            'identity_number' => '-',
+        ]);
     }
 
     public function test_validation_fails_for_invalid_role_or_trial_class(): void

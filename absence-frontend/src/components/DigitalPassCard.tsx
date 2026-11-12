@@ -108,9 +108,11 @@ export const DigitalPassCard: React.FC<DigitalPassCardProps> = ({
               <h4 className="font-display text-[20px] sm:text-[24px] font-bold text-[#181b2b] leading-tight mt-0.5 break-words">
                 {pass.fullName}
               </h4>
-              <p className="font-code-sm text-[12px] sm:text-[13px] text-[#464651] mt-1 font-medium">
-                {pass.role === 'Siswa' ? 'NISN' : 'NIP'}: {pass.nisnOrNip}
-              </p>
+              {pass.nisnOrNip && pass.nisnOrNip !== '-' && (
+                <p className="font-code-sm text-[12px] sm:text-[13px] text-[#464651] mt-1 font-medium">
+                  {pass.role === 'Siswa' ? 'NISN' : 'NIP'}: {pass.nisnOrNip}
+                </p>
+              )}
             </div>
 
             <div className="shrink-0">

@@ -31,6 +31,11 @@ class Participant extends Model
         'redeemed_by',
     ];
 
+    protected $attributes = [
+        'identity_number' => '-',
+        'is_redeemed' => false,
+    ];
+
     /**
      * Get the attributes that should be cast.
      *

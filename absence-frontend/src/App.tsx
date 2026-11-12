@@ -454,7 +454,7 @@ export default function App() {
   // Public Registration Handler -> POST /api/register with offline fallback
   const handleRegister = async (newPassData: {
     fullName: string;
-    nisnOrNip: string;
+    nisnOrNip?: string;
     schoolId: number;
     schoolOrigin: string;
     role: AttendeeRole;
@@ -469,7 +469,7 @@ export default function App() {
       const participant = await api.registerParticipant({
         role: backendRole,
         name: newPassData.fullName,
-        identity_number: newPassData.nisnOrNip,
+        identity_number: newPassData.nisnOrNip || '-',
         school_id: newPassData.schoolId,
         trial_class: newPassData.trialClass,
         referral_source: newPassData.infoSource,
@@ -486,7 +486,7 @@ export default function App() {
         id: `local-${Date.now()}`,
         couponCode: getNextCouponCode(),
         fullName: newPassData.fullName,
-        nisnOrNip: newPassData.nisnOrNip,
+        nisnOrNip: newPassData.nisnOrNip || '-',
         schoolOrigin: newPassData.schoolOrigin,
         schoolId: newPassData.schoolId,
         role: newPassData.role,
@@ -513,7 +513,7 @@ export default function App() {
   // Admin Walk-In Registration Handler -> POST /api/admin/participants
   const handleAdminRegister = async (newPassData: {
     fullName: string;
-    nisnOrNip: string;
+    nisnOrNip?: string;
     schoolId: number;
     schoolOrigin: string;
     role: AttendeeRole;
@@ -529,7 +529,7 @@ export default function App() {
         const participant = await api.adminRegisterParticipant(adminToken, {
           role: backendRole,
           name: newPassData.fullName,
-          identity_number: newPassData.nisnOrNip,
+          identity_number: newPassData.nisnOrNip || '-',
           school_id: newPassData.schoolId,
           trial_class: newPassData.trialClass,
           referral_source: newPassData.infoSource,
@@ -547,7 +547,7 @@ export default function App() {
           id: `walkin-${Date.now()}`,
           couponCode: getNextCouponCode(),
           fullName: newPassData.fullName,
-          nisnOrNip: newPassData.nisnOrNip,
+          nisnOrNip: newPassData.nisnOrNip || '-',
           schoolOrigin: newPassData.schoolOrigin,
           schoolId: newPassData.schoolId,
           role: newPassData.role,
@@ -564,7 +564,7 @@ export default function App() {
         id: `walkin-${Date.now()}`,
         couponCode: getNextCouponCode(),
         fullName: newPassData.fullName,
-        nisnOrNip: newPassData.nisnOrNip,
+        nisnOrNip: newPassData.nisnOrNip || '-',
         schoolOrigin: newPassData.schoolOrigin,
         schoolId: newPassData.schoolId,
         role: newPassData.role,

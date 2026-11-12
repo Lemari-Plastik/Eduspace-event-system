@@ -72,7 +72,7 @@ export interface BackendParticipant {
   id: number;
   role: 'siswa' | 'guru_pendamping';
   name: string;
-  identity_number: string;
+  identity_number?: string;
   school_id: number;
   school?: School;
   trial_class: TrialClassType;
@@ -101,7 +101,7 @@ export interface AttendeePass {
   id: string;
   couponCode: string; // e.g., ABSC-0001
   fullName: string;
-  nisnOrNip: string;
+  nisnOrNip?: string;
   schoolOrigin: string;
   schoolId?: number;
   role: AttendeeRole;

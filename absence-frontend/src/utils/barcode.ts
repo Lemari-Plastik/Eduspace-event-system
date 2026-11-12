@@ -614,13 +614,15 @@ export function downloadPassAsPng(pass: AttendeePass): void {
   ctx.font = '500 13px "Inter", sans-serif';
   ctx.fillText(pass.schoolOrigin, cardX + 24, cardY + 146);
 
-  ctx.fillStyle = '#64748B';
-  ctx.font = '500 12px "JetBrains Mono", monospace';
-  ctx.fillText(
-    `${pass.role === 'Siswa' ? 'NISN' : 'NIP'}: ${pass.nisnOrNip}`,
-    cardX + 24,
-    cardY + 166
-  );
+  if (pass.nisnOrNip && pass.nisnOrNip !== '-') {
+    ctx.fillStyle = '#64748B';
+    ctx.font = '500 12px "JetBrains Mono", monospace';
+    ctx.fillText(
+      `${pass.role === 'Siswa' ? 'NISN' : 'NIP'}: ${pass.nisnOrNip}`,
+      cardX + 24,
+      cardY + 166
+    );
+  }
 
   // Trial Class / Role Status Box
   ctx.fillStyle = '#F4F2FF';

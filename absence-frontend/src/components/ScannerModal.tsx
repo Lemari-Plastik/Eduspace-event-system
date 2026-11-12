@@ -108,7 +108,10 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
               </div>
 
               <p className="text-[12px] sm:text-[13px] text-[#64748B] break-words">
-                {feedback.pass.schoolOrigin} · NISN/NIP: {feedback.pass.nisnOrNip}
+                {feedback.pass.schoolOrigin}
+                {feedback.pass.nisnOrNip && feedback.pass.nisnOrNip !== '-'
+                  ? ` · NISN/NIP: ${feedback.pass.nisnOrNip}`
+                  : ''}
               </p>
 
               <div className="pt-2 border-t border-[#E2E8F0] flex flex-wrap items-center justify-between gap-1.5 text-[11px] sm:text-[12px]">

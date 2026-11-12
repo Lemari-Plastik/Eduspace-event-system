@@ -35,7 +35,7 @@ interface RegistrationViewProps {
   nextCouponCode: string;
   onRegister: (newPassData: {
     fullName: string;
-    nisnOrNip: string;
+    nisnOrNip?: string;
     schoolId: number;
     schoolOrigin: string;
     role: AttendeeRole;
@@ -57,7 +57,6 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
   const [role, setRole] = useState<AttendeeRole>('Siswa');
   const [fullName, setFullName] = useState('');
-  const [nisnOrNip, setNisnOrNip] = useState('');
   const [schoolId, setSchoolId] = useState<number | ''>('');
   const [trialClass, setTrialClass] = useState<TrialClassType>('IT');
   const [infoSource, setInfoSource] = useState<InfoSourceType>('Medsos');
@@ -104,19 +103,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
     setErrorMessage(null);
 
     const trimmedName = fullName.trim();
-    const trimmedNisn = nisnOrNip.trim();
     const trimmedDetail = infoSourceDetail.trim();
 
     if (!trimmedName || trimmedName.length < 3) {
       setErrorMessage('Mohon isi nama lengkap peserta minimal 3 karakter.');
-      return;
-    }
-    if (!trimmedNisn) {
-      setErrorMessage(
-        role === 'Siswa'
-          ? 'Mohon isi nomor NISN peserta.'
-          : 'Mohon isi nomor NIP atau identitas Guru Pendamping.'
-      );
       return;
     }
     if (!schoolId) {
@@ -133,13 +123,12 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
     const duplicate = attendees.find(
       (a) =>
-        a.nisnOrNip.toLowerCase() === trimmedNisn.toLowerCase() ||
-        (a.fullName.toLowerCase() === trimmedName.toLowerCase() &&
-          a.schoolOrigin.toLowerCase() === schoolName.toLowerCase())
+        a.fullName.toLowerCase() === trimmedName.toLowerCase() &&
+        a.schoolOrigin.toLowerCase() === schoolName.toLowerCase()
     );
     if (duplicate) {
       setErrorMessage(
-        `Peserta "${trimmedName}" sudah terdaftar sebelumnya dengan kode kupon ${duplicate.couponCode}.`
+        `Peserta "${trimmedName}" dari "${schoolName}" sudah terdaftar sebelumnya dengan kode kupon ${duplicate.couponCode}.`
       );
       return;
     }
@@ -148,7 +137,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       setIsSubmitting(true);
       await onRegister({
         fullName: trimmedName,
-        nisnOrNip: trimmedNisn,
+        nisnOrNip: '-',
         schoolId: Number(schoolId),
         schoolOrigin: schoolName,
         role,
@@ -665,58 +654,35 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="input-nisn"
-                  className="block text-[14px] sm:text-[15px] font-medium text-[#181b2b] mb-1.5"
+            <div>
+              <label
+                htmlFor="select-school"
+                className="block text-[14px] sm:text-[15px] font-medium text-[#181b2b] mb-1.5"
+              >
+                Asal Sekolah / Institusi
+              </label>
+              {isLoadingSchools ? (
+                <div className="w-full min-h-[48px] px-3.5 sm:px-4 rounded-xl bg-slate-50 border border-[#E2E8F0] flex items-center text-[13px] text-[#64748B] animate-pulse">
+                  Memuat daftar sekolah...
+                </div>
+              ) : (
+                <select
+                  id="select-school"
+                  value={schoolId}
+                  onChange={(e) => {
+                    const val = e.target.value ? Number(e.target.value) : '';
+                    setSchoolId(val);
+                  }}
+                  className="w-full min-h-[48px] px-3.5 sm:px-4 rounded-xl bg-white border border-[#E2E8F0] focus:border-2 focus:border-[#9FA0FF] focus:outline-none text-[14px] sm:text-[15px] text-[#181b2b] transition-colors cursor-pointer"
                 >
-                  {role === 'Siswa'
-                    ? 'Nomor Induk Siswa Nasional (NISN)'
-                    : 'Nomor Induk Pegawai (NIP)'}
-                </label>
-                <input
-                  id="input-nisn"
-                  type="text"
-                  value={nisnOrNip}
-                  onChange={(e) => setNisnOrNip(e.target.value)}
-                  placeholder={
-                    role === 'Siswa' ? 'Contoh: 0067891234' : 'Contoh: 197805122005012004'
-                  }
-                  className="w-full min-h-[48px] px-3.5 sm:px-4 rounded-xl bg-white border border-[#E2E8F0] focus:border-2 focus:border-[#9FA0FF] focus:outline-none font-mono-code text-[14px] sm:text-[15px] text-[#181b2b] placeholder:text-[#64748B] transition-colors"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="select-school"
-                  className="block text-[14px] sm:text-[15px] font-medium text-[#181b2b] mb-1.5"
-                >
-                  Asal Sekolah / Institusi
-                </label>
-                {isLoadingSchools ? (
-                  <div className="w-full min-h-[48px] px-3.5 sm:px-4 rounded-xl bg-slate-50 border border-[#E2E8F0] flex items-center text-[13px] text-[#64748B] animate-pulse">
-                    Memuat daftar sekolah...
-                  </div>
-                ) : (
-                  <select
-                    id="select-school"
-                    value={schoolId}
-                    onChange={(e) => {
-                      const val = e.target.value ? Number(e.target.value) : '';
-                      setSchoolId(val);
-                    }}
-                    className="w-full min-h-[48px] px-3.5 sm:px-4 rounded-xl bg-white border border-[#E2E8F0] focus:border-2 focus:border-[#9FA0FF] focus:outline-none text-[14px] sm:text-[15px] text-[#181b2b] transition-colors cursor-pointer"
-                  >
-                    <option value="">-- Pilih Asal Sekolah ({schools.length} sekolah terdaftar) --</option>
-                    {schools.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+                  <option value="">-- Pilih Asal Sekolah ({schools.length} sekolah terdaftar) --</option>
+                  {schools.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 

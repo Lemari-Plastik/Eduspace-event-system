@@ -92,7 +92,6 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
   const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
   const [walkInRole, setWalkInRole] = useState<AttendeeRole>('Siswa');
   const [walkInFullName, setWalkInFullName] = useState('');
-  const [walkInNisn, setWalkInNisn] = useState('');
   const [walkInSchoolId, setWalkInSchoolId] = useState<number | ''>('');
   const [walkInTrialClass, setWalkInTrialClass] = useState<TrialClassType>('IT');
   const [walkInInfoSource, setWalkInInfoSource] = useState<InfoSourceType>('Website');
@@ -126,7 +125,7 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
       !q ||
       p.fullName.toLowerCase().includes(q) ||
       p.couponCode.toLowerCase().includes(q) ||
-      p.nisnOrNip.toLowerCase().includes(q) ||
+      (p.nisnOrNip ? p.nisnOrNip.toLowerCase().includes(q) : false) ||
       p.schoolOrigin.toLowerCase().includes(q) ||
       p.infoSource.toLowerCase().includes(q) ||
       (p.infoSourceDetail && p.infoSourceDetail.toLowerCase().includes(q));
@@ -217,7 +216,7 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
         p.couponCode,
         `"${p.fullName.replace(/"/g, '""')}"`,
         p.role,
-        p.nisnOrNip,
+        p.nisnOrNip || '-',
         `"${p.schoolOrigin.replace(/"/g, '""')}"`,
         p.trialClass,
         p.infoSource,
@@ -631,10 +630,6 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                       setWalkInError('Nama lengkap peserta wajib diisi.');
                       return;
                     }
-                    if (!walkInNisn.trim()) {
-                      setWalkInError('NISN / NIP wajib diisi.');
-                      return;
-                    }
                     if (!walkInSchoolId) {
                       setWalkInError('Asal sekolah wajib dipilih.');
                       return;
@@ -656,7 +651,7 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                       const sch = schools.find((s) => s.id === Number(walkInSchoolId));
                       await onAdminRegister({
                         fullName: walkInFullName.trim(),
-                        nisnOrNip: walkInNisn.trim(),
+                        nisnOrNip: '-',
                         schoolId: Number(walkInSchoolId),
                         schoolOrigin: sch ? sch.name : '',
                         role: walkInRole,
@@ -667,7 +662,6 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                       showToast(`Pendaftaran walk-in untuk ${walkInFullName} berhasil disimpan!`);
                       setIsWalkInModalOpen(false);
                       setWalkInFullName('');
-                      setWalkInNisn('');
                       setWalkInSchoolId('');
                       setWalkInInfoSourceDetail('');
                     } catch (err: any) {
@@ -709,21 +703,6 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                       onChange={(e) => setWalkInFullName(e.target.value)}
                       placeholder="Contoh: Budi Santoso"
                       className="w-full h-11 px-3.5 rounded-xl border border-border-subtle bg-surface text-on-surface text-sm focus:border-primary focus:outline-none"
-                    />
-                  </div>
-
-                  {/* NISN / NIP */}
-                  <div>
-                    <label className="block text-xs font-medium text-text-muted mb-1">
-                      {walkInRole === 'Siswa' ? 'NISN (10 Digit)' : 'NIP / Identitas'}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={walkInNisn}
-                      onChange={(e) => setWalkInNisn(e.target.value)}
-                      placeholder={walkInRole === 'Siswa' ? '0089123456' : '19800101...'}
-                      className="w-full h-11 px-3.5 rounded-xl border border-border-subtle bg-surface text-on-surface text-sm font-mono focus:border-primary focus:outline-none"
                     />
                   </div>
 
@@ -1023,7 +1002,10 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                             {lastVerifiedAttendee.fullName}
                           </p>
                           <p className="text-[12px] sm:text-[13px] text-text-muted">
-                            {lastVerifiedAttendee.schoolOrigin} · {lastVerifiedAttendee.role === 'Siswa' ? 'NISN' : 'NIP'}: {lastVerifiedAttendee.nisnOrNip}
+                            {lastVerifiedAttendee.schoolOrigin}
+                            {lastVerifiedAttendee.nisnOrNip && lastVerifiedAttendee.nisnOrNip !== '-'
+                              ? ` · ${lastVerifiedAttendee.role === 'Siswa' ? 'NISN' : 'NIP'}: ${lastVerifiedAttendee.nisnOrNip}`
+                              : ''}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -2019,10 +2001,14 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                           <span className="font-medium text-on-surface">
                             {p.role}
                           </span>
-                          <span>·</span>
-                          <span className="font-mono-code font-medium">
-                            {p.nisnOrNip}
-                          </span>
+                          {p.nisnOrNip && p.nisnOrNip !== '-' && (
+                            <>
+                              <span>·</span>
+                              <span className="font-mono-code font-medium">
+                                {p.nisnOrNip}
+                              </span>
+                            </>
+                          )}
                         </div>
                         <p className="text-[13px] text-on-surface-variant mt-1 leading-snug">
                           {p.schoolOrigin}
@@ -2167,7 +2153,7 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
 
                           <td className="py-3 px-3">
                             <span className="font-code-sm text-[12px] text-on-surface">
-                              {p.nisnOrNip}
+                              {p.nisnOrNip && p.nisnOrNip !== '-' ? p.nisnOrNip : '-'}
                             </span>
                           </td>
 

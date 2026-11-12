@@ -139,7 +139,7 @@ export const api = {
   async registerParticipant(data: {
     role: 'siswa' | 'guru_pendamping';
     name: string;
-    identity_number: string;
+    identity_number?: string;
     school_id: number;
     trial_class: TrialClassType;
     referral_source: string;
@@ -267,7 +267,7 @@ export const api = {
     data: {
       role: 'siswa' | 'guru_pendamping';
       name: string;
-      identity_number: string;
+      identity_number?: string;
       school_id: number;
       trial_class: TrialClassType;
       referral_source: string;
