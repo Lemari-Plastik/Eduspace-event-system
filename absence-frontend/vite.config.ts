@@ -1,11 +1,31 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { defineConfig } from 'vite';
+import { defineConfig, Plugin } from 'vite';
+
+function htmlMetadataPlugin(): Plugin {
+  return {
+    name: 'html-metadata-plugin',
+    transformIndexHtml(html: string) {
+      const siteUrl =
+        process.env.VITE_PUBLIC_URL ||
+        (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '') ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+
+      if (siteUrl) {
+        const origin = siteUrl.startsWith('http') ? siteUrl.replace(/\/$/, '') : `https://${siteUrl.replace(/\/$/, '')}`;
+        return html
+          .replace(/content="\/Banner-Metadata\.png"/g, `content="${origin}/Banner-Metadata.png"`)
+          .replace(/content="\/logo\.png"/g, `content="${origin}/logo.png"`);
+      }
+      return html;
+    },
+  };
+}
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), htmlMetadataPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, '.'),

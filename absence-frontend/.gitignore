@@ -4,5 +4,6 @@ dist/
 coverage/
 .DS_Store
 *.log
+*.original.png
 .env*
 !.env.example

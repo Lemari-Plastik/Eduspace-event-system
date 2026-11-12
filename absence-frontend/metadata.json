@@ -1,5 +1,5 @@
 {
   "name": "Nusantara Open House & Event Pass System",
-  "description": "Sistem pendaftaran Open House pendidikan, pembuatan tiket kupon digital berlubang (CODE128/QR), serta meja pemindai kehadiran dan penukaran voucher real-time.",
+  "description": "Sistem pendaftaran Open House pendidikan, pembuatan tiket kupon digital kode unik, serta meja validasi kehadiran dan penukaran voucher real-time.",
   "requestFramePermissions": ["camera"]
 }
