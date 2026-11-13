@@ -80,7 +80,7 @@ export const DigitalPassCard: React.FC<DigitalPassCardProps> = ({
         >
           <div className="min-w-0">
             <p className="text-[11px] sm:text-[12px] font-semibold tracking-wider uppercase text-[#506260] truncate">
-              EduPass Open House 2026
+              SMK Metland Cibitung
             </p>
             <h3 className="font-display text-[15px] sm:text-[17px] font-bold text-[#181b2b] leading-snug truncate">
               Tiket Pas &amp; Kupon Kehadiran Resmi
@@ -260,7 +260,7 @@ export const DigitalPassCard: React.FC<DigitalPassCardProps> = ({
           </div>
 
           <p className="text-[11px] sm:text-[12px] text-[#64748B] mt-3 max-w-sm mx-auto">
-            Simpan atau unduh kartu tiket ini sebagai bukti pendaftaran resmi Anda di EduPass Open House 2026.
+            Simpan atau unduh kartu tiket ini sebagai bukti pendaftaran resmi Anda di aplikasi SMK Metland School.
           </p>
 
           {/* Action Buttons on Ticket Footer */}

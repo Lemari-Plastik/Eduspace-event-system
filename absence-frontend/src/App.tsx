@@ -912,8 +912,8 @@ export default function App() {
               src="/logo.png"
             />
             <span className="font-display text-[15px] sm:text-[18px] font-bold tracking-tight text-[#181b2b] truncate">
-              <span className="hidden sm:inline">EduPass Open House</span>
-              <span className="sm:hidden">EduPass</span>
+              <span className="hidden sm:inline">SMK Metland School</span>
+              <span className="sm:hidden">Metschool</span>
             </span>
           </div>
 

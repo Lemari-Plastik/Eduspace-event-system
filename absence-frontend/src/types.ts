@@ -182,7 +182,7 @@ export const INITIAL_ATTENDEES: AttendeePass[] = [
     role: 'Siswa',
     trialClass: 'DKV',
     infoSource: 'Medsos',
-    infoSourceDetail: 'Instagram @edupass.id',
+    infoSourceDetail: 'Instagram @smkmetland.cibitung',
     registrationSource: 'Reg-Online',
     status: 'REDEEMED',
     registeredAt: '07:45 WIB',

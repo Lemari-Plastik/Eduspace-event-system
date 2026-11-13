@@ -442,7 +442,7 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
               src="/logo.png"
             />
             <span className="font-display text-[15px] font-bold text-primary truncate">
-              EduPass Admin
+              SMK Metland School
             </span>
           </div>
 
