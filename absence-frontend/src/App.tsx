@@ -457,6 +457,7 @@ export default function App() {
     nisnOrNip?: string;
     schoolId: number;
     schoolOrigin: string;
+    customSchoolName?: string;
     role: AttendeeRole;
     trialClass: TrialClassType;
     infoSource: InfoSourceType;
@@ -471,13 +472,14 @@ export default function App() {
         name: newPassData.fullName,
         identity_number: newPassData.nisnOrNip || '-',
         school_id: newPassData.schoolId,
+        custom_school_name: newPassData.customSchoolName || null,
         trial_class: newPassData.trialClass,
         referral_source: newPassData.infoSource,
         referral_detail: newPassData.infoSourceDetail || null,
       });
 
       newPass = mapBackendToAttendeePass(participant);
-      if (!newPass.schoolOrigin || newPass.schoolOrigin.startsWith('Sekolah #')) {
+      if (newPassData.schoolOrigin && (newPassData.customSchoolName || !newPass.schoolOrigin || newPass.schoolOrigin.startsWith('Sekolah #'))) {
         newPass.schoolOrigin = newPassData.schoolOrigin;
       }
     } catch (apiErr) {
@@ -516,6 +518,7 @@ export default function App() {
     nisnOrNip?: string;
     schoolId: number;
     schoolOrigin: string;
+    customSchoolName?: string;
     role: AttendeeRole;
     trialClass: TrialClassType;
     infoSource: InfoSourceType;
@@ -531,13 +534,14 @@ export default function App() {
           name: newPassData.fullName,
           identity_number: newPassData.nisnOrNip || '-',
           school_id: newPassData.schoolId,
+          custom_school_name: newPassData.customSchoolName || null,
           trial_class: newPassData.trialClass,
           referral_source: newPassData.infoSource,
           referral_detail: newPassData.infoSourceDetail || null,
         });
 
         newPass = mapBackendToAttendeePass(participant);
-        if (!newPass.schoolOrigin || newPass.schoolOrigin.startsWith('Sekolah #')) {
+        if (newPassData.schoolOrigin && (newPassData.customSchoolName || !newPass.schoolOrigin || newPass.schoolOrigin.startsWith('Sekolah #'))) {
           newPass.schoolOrigin = newPassData.schoolOrigin;
         }
         newPass.registrationSource = 'Walk-In';

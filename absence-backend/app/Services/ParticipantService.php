@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Participant;
+use App\Models\School;
 use Illuminate\Database\QueryException;
 
 class ParticipantService
@@ -36,12 +37,20 @@ class ParticipantService
                 $trialClass = '-';
             }
 
+            $schoolId = !empty($data['school_id']) ? (int) $data['school_id'] : null;
+            if (!empty($data['custom_school_name'])) {
+                $customSchool = School::firstOrCreate([
+                    'name' => trim($data['custom_school_name']),
+                ]);
+                $schoolId = $customSchool->id;
+            }
+
             try {
                 return Participant::create([
                     'role' => $data['role'],
                     'name' => $data['name'],
                     'identity_number' => !empty($data['identity_number']) ? $data['identity_number'] : '-',
-                    'school_id' => (int) $data['school_id'],
+                    'school_id' => $schoolId,
                     'trial_class' => $trialClass,
                     'referral_source' => $data['referral_source'],
                     'referral_detail' => $data['referral_detail'] ?? null,

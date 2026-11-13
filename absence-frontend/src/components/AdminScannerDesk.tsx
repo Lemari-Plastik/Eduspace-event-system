@@ -29,9 +29,10 @@ interface AdminScannerDeskProps {
   schools?: School[];
   onAdminRegister?: (newPassData: {
     fullName: string;
-    nisnOrNip: string;
+    nisnOrNip?: string;
     schoolId: number;
     schoolOrigin: string;
+    customSchoolName?: string;
     role: AttendeeRole;
     trialClass: TrialClassType;
     infoSource: InfoSourceType;
@@ -92,7 +93,8 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
   const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
   const [walkInRole, setWalkInRole] = useState<AttendeeRole>('Siswa');
   const [walkInFullName, setWalkInFullName] = useState('');
-  const [walkInSchoolId, setWalkInSchoolId] = useState<number | ''>('');
+  const [walkInSchoolId, setWalkInSchoolId] = useState<number | 'other' | ''>('');
+  const [walkInCustomSchool, setWalkInCustomSchool] = useState('');
   const [walkInTrialClass, setWalkInTrialClass] = useState<TrialClassType>('IT');
   const [walkInInfoSource, setWalkInInfoSource] = useState<InfoSourceType>('Website');
   const [walkInInfoSourceDetail, setWalkInInfoSourceDetail] = useState('');
@@ -634,6 +636,26 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                       setWalkInError('Asal sekolah wajib dipilih.');
                       return;
                     }
+
+                    let schoolName = '';
+                    let finalSchoolId = 0;
+                    let customSchoolName: string | undefined = undefined;
+
+                    if (walkInSchoolId === 'other') {
+                      const trimmedCustom = walkInCustomSchool.trim();
+                      if (!trimmedCustom || trimmedCustom.length < 3) {
+                        setWalkInError('Nama sekolah wajib diisi minimal 3 karakter.');
+                        return;
+                      }
+                      schoolName = trimmedCustom;
+                      customSchoolName = trimmedCustom;
+                      finalSchoolId = schools[0]?.id || 1;
+                    } else {
+                      const sch = schools.find((s) => s.id === Number(walkInSchoolId));
+                      schoolName = sch ? sch.name : '';
+                      finalSchoolId = Number(walkInSchoolId);
+                    }
+
                     if (
                       (walkInInfoSource === 'Medsos' ||
                         walkInInfoSource === 'Banner' ||
@@ -648,12 +670,12 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
 
                     try {
                       setIsWalkInSubmitting(true);
-                      const sch = schools.find((s) => s.id === Number(walkInSchoolId));
                       await onAdminRegister({
                         fullName: walkInFullName.trim(),
                         nisnOrNip: '-',
-                        schoolId: Number(walkInSchoolId),
-                        schoolOrigin: sch ? sch.name : '',
+                        schoolId: finalSchoolId,
+                        schoolOrigin: schoolName,
+                        customSchoolName: customSchoolName,
                         role: walkInRole,
                         trialClass: walkInRole === 'Guru Pendamping' ? '-' : walkInTrialClass,
                         infoSource: walkInInfoSource,
@@ -663,6 +685,7 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                       setIsWalkInModalOpen(false);
                       setWalkInFullName('');
                       setWalkInSchoolId('');
+                      setWalkInCustomSchool('');
                       setWalkInInfoSourceDetail('');
                     } catch (err: any) {
                       setWalkInError(err.message || 'Gagal mendaftarkan peserta.');
@@ -712,7 +735,14 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                     <select
                       required
                       value={walkInSchoolId}
-                      onChange={(e) => setWalkInSchoolId(e.target.value ? Number(e.target.value) : '')}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === 'other') {
+                          setWalkInSchoolId('other');
+                        } else {
+                          setWalkInSchoolId(raw ? Number(raw) : '');
+                        }
+                      }}
                       className="w-full h-11 px-3 rounded-xl border border-border-subtle bg-surface text-on-surface text-sm focus:border-primary focus:outline-none"
                     >
                       <option value="">-- Pilih Asal Sekolah --</option>
@@ -721,7 +751,25 @@ export const AdminScannerDesk: React.FC<AdminScannerDeskProps> = ({
                           {s.name}
                         </option>
                       ))}
+                      <option value="other">🏫 Lainnya / Sekolah Lain (Ketik Manual)...</option>
                     </select>
+
+                    {walkInSchoolId === 'other' && (
+                      <div className="mt-2">
+                        <label className="block text-[11px] font-medium text-text-muted mb-1">
+                          Ketikkan Asal Sekolah
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={walkInCustomSchool}
+                          onChange={(e) => setWalkInCustomSchool(e.target.value)}
+                          placeholder="Contoh: SMP Swasta Mandiri"
+                          className="w-full h-10 px-3 rounded-xl border border-primary bg-surface text-on-surface text-sm focus:outline-none"
+                          autoFocus
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Trial Class */}

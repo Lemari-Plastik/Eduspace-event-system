@@ -26,7 +26,8 @@ class RegisterParticipantRequest extends FormRequest
             'role' => ['required', 'in:siswa,guru_pendamping'],
             'name' => ['required', 'string', 'max:255'],
             'identity_number' => ['nullable', 'string', 'max:50'],
-            'school_id' => ['required', 'exists:schools,id'],
+            'school_id' => ['required_without:custom_school_name', 'nullable', 'exists:schools,id'],
+            'custom_school_name' => ['nullable', 'string', 'max:255'],
             'trial_class' => [
                 'required_if:role,siswa',
                 'nullable',

@@ -38,6 +38,7 @@ interface RegistrationViewProps {
     nisnOrNip?: string;
     schoolId: number;
     schoolOrigin: string;
+    customSchoolName?: string;
     role: AttendeeRole;
     trialClass: TrialClassType;
     infoSource: InfoSourceType;
@@ -57,7 +58,8 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
   const [role, setRole] = useState<AttendeeRole>('Siswa');
   const [fullName, setFullName] = useState('');
-  const [schoolId, setSchoolId] = useState<number | ''>('');
+  const [schoolId, setSchoolId] = useState<number | 'other' | ''>('');
+  const [customSchoolName, setCustomSchoolName] = useState('');
   const [trialClass, setTrialClass] = useState<TrialClassType>('IT');
   const [infoSource, setInfoSource] = useState<InfoSourceType>('Medsos');
   const [infoSourceDetail, setInfoSourceDetail] = useState('');
@@ -110,16 +112,33 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       return;
     }
     if (!schoolId) {
-      setErrorMessage('Mohon pilih asal sekolah (SMA/SMK/MA/SMP).');
+      setErrorMessage('Mohon pilih asal sekolah (SMA/SMK/MA/SMP/Lainnya).');
       return;
     }
+
+    let schoolName = '';
+    let finalSchoolId = 0;
+    let customNameTrimmed: string | undefined = undefined;
+
+    if (schoolId === 'other') {
+      const trimmedCustom = customSchoolName.trim();
+      if (!trimmedCustom || trimmedCustom.length < 3) {
+        setErrorMessage('Mohon ketikkan nama asal sekolah Anda minimal 3 karakter.');
+        return;
+      }
+      schoolName = trimmedCustom;
+      customNameTrimmed = trimmedCustom;
+      finalSchoolId = schools[0]?.id || 1;
+    } else {
+      const selectedSchool = schools.find((s) => s.id === Number(schoolId));
+      schoolName = selectedSchool ? selectedSchool.name : '';
+      finalSchoolId = Number(schoolId);
+    }
+
     if (needsSourceDetail && !trimmedDetail) {
       setErrorMessage(`Mohon pilih Detail Sumber untuk pilihan "${infoSource}".`);
       return;
     }
-
-    const selectedSchool = schools.find((s) => s.id === Number(schoolId));
-    const schoolName = selectedSchool ? selectedSchool.name : '';
 
     const duplicate = attendees.find(
       (a) =>
@@ -138,8 +157,9 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       await onRegister({
         fullName: trimmedName,
         nisnOrNip: '-',
-        schoolId: Number(schoolId),
+        schoolId: finalSchoolId,
         schoolOrigin: schoolName,
+        customSchoolName: customNameTrimmed,
         role,
         trialClass: role === 'Guru Pendamping' ? '-' : trialClass,
         infoSource,
@@ -670,8 +690,12 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   id="select-school"
                   value={schoolId}
                   onChange={(e) => {
-                    const val = e.target.value ? Number(e.target.value) : '';
-                    setSchoolId(val);
+                    const rawVal = e.target.value;
+                    if (rawVal === 'other') {
+                      setSchoolId('other');
+                    } else {
+                      setSchoolId(rawVal ? Number(rawVal) : '');
+                    }
                   }}
                   className="w-full min-h-[48px] px-3.5 sm:px-4 rounded-xl bg-white border border-[#E2E8F0] focus:border-2 focus:border-[#9FA0FF] focus:outline-none text-[14px] sm:text-[15px] text-[#181b2b] transition-colors cursor-pointer"
                 >
@@ -681,8 +705,41 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                       {s.name}
                     </option>
                   ))}
+                  <option value="other">🏫 Lainnya / Sekolah Lain (Ketik Manual)...</option>
                 </select>
               )}
+
+              <AnimatePresence>
+                {schoolId === 'other' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
+                    exit={{ opacity: 0, y: -6, height: 0 }}
+                    transition={{ duration: 0.22, ease: 'easeOut' }}
+                    className="mt-3 overflow-hidden"
+                  >
+                    <label
+                      htmlFor="input-custom-school"
+                      className="block text-[13px] sm:text-[14px] font-medium text-[#181b2b] mb-1.5"
+                    >
+                      Ketikkan Nama Asal Sekolah Anda
+                    </label>
+                    <input
+                      id="input-custom-school"
+                      type="text"
+                      value={customSchoolName}
+                      onChange={(e) => setCustomSchoolName(e.target.value)}
+                      placeholder="Contoh: SMP Negeri 1 Cikarang Utara"
+                      className="w-full min-h-[48px] px-3.5 sm:px-4 rounded-xl bg-white border border-[#9FA0FF] focus:border-2 focus:border-[#5354ad] focus:outline-none text-[14px] sm:text-[15px] text-[#181b2b] placeholder:text-[#64748B] transition-colors shadow-2xs"
+                      autoFocus
+                    />
+                    <p className="text-[12px] text-[#64748B] mt-1.5 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[15px] text-[#5354ad]">info</span>
+                      Nama sekolah ini akan langsung tertera pada kartu kupon digital Anda.
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 

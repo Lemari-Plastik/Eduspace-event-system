@@ -99,6 +99,31 @@ class ParticipantRegistrationTest extends TestCase
         ]);
     }
 
+    public function test_can_register_with_custom_school_name(): void
+    {
+        $payload = [
+            'role' => 'siswa',
+            'name' => 'Siswa Sekolah Lain',
+            'custom_school_name' => 'SMP Swasta Mandiri Cibitung',
+            'trial_class' => 'DKV',
+            'referral_source' => 'Teman',
+        ];
+
+        $response = $this->postJson('/api/register', $payload);
+
+        $response->assertCreated()
+            ->assertJsonPath('name', 'Siswa Sekolah Lain')
+            ->assertJsonPath('school.name', 'SMP Swasta Mandiri Cibitung');
+
+        $this->assertDatabaseHas('schools', [
+            'name' => 'SMP Swasta Mandiri Cibitung',
+        ]);
+
+        $this->assertDatabaseHas('participants', [
+            'name' => 'Siswa Sekolah Lain',
+        ]);
+    }
+
     public function test_validation_fails_for_invalid_role_or_trial_class(): void
     {
         $school = School::factory()->create();

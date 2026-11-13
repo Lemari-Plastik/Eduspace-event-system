@@ -140,7 +140,8 @@ export const api = {
     role: 'siswa' | 'guru_pendamping';
     name: string;
     identity_number?: string;
-    school_id: number;
+    school_id?: number;
+    custom_school_name?: string | null;
     trial_class: TrialClassType;
     referral_source: string;
     referral_detail?: string | null;
@@ -268,7 +269,8 @@ export const api = {
       role: 'siswa' | 'guru_pendamping';
       name: string;
       identity_number?: string;
-      school_id: number;
+      school_id?: number;
+      custom_school_name?: string | null;
       trial_class: TrialClassType;
       referral_source: string;
       referral_detail?: string | null;
